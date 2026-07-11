@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Mozaic Script Builder</title>
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#171a21;
+    --panel2:#1f2430;
+    --text:#eef2f7;
+    --muted:#9aa4b2;
+    --accent:#7c9cff;
+    --accent2:#a77cff;
+    --border:#303746;
+    --good:#68d391;
+    --warn:#f6c85f;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:linear-gradient(135deg,#0d0f14,#141824);
+    color:var(--text);
+    min-height:100vh;
+  }
+  header{
+    padding:18px 20px;
+    border-bottom:1px solid var(--border);
+    background:rgba(15,17,21,.92);
+    backdrop-filter:blur(12px);
+    position:sticky; top:0; z-index:10;
+  }
+  header h1{margin:0;font-size:1.35rem}
+  header p{margin:.35rem 0 0;color:var(--muted);font-size:.92rem}
+  .app{
+    display:grid;
+    grid-template-columns:minmax(300px,380px) 1fr;
+    gap:16px;
+    padding:16px;
+  }
+  .panel{
+    background:rgba(23,26,33,.96);
+    border:1px solid var(--border);
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 12px 30px rgba(0,0,0,.2);
+  }
+  .panel h2{
+    font-size:1rem;
+    margin:0;
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+    background:var(--panel2);
+  }
+  .content{padding:14px}
+  label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:6px}
+  textarea,input,select{
+    width:100%;
+    background:#0f131b;
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 11px;
+    font:inherit;
+  }
+  textarea{min-height:120px;resize:vertical}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .field{margin-bottom:12px}
+  .checkrow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}
+  .chip{
+    border:1px solid var(--border);
+    background:#111722;
+    color:var(--text);
+    border-radius:999px;
+    padding:8px 10px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .chip input{width:auto;margin-right:6px}
+  .buttons{display:flex;flex-wrap:wrap;gap:8px}
+  button{
+    border:0;
+    border-radius:10px;
+    padding:10px 13px;
+    font-weight:700;
+    cursor:pointer;
+    background:var(--accent);
+    color:#081020;
+  }
+  button.secondary{background:#2a3242;color:var(--text)}
+  button.good{background:var(--good)}
+  button.warn{background:var(--warn)}
+  .output-wrap{display:flex;flex-direction:column;min-height:calc(100vh - 130px)}
+  .toolbar{
+    display:flex;flex-wrap:wrap;gap:8px;
+    padding:12px;border-bottom:1px solid var(--border);background:var(--panel2)
+  }
+  #code{
+    flex:1;
+    min-height:620px;
+    border:0;
+    border-radius:0;
+    background:#0b0e13;
+    color:#d8e2f0;
+    font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:13px;
+    line-height:1.5;
+    padding:16px;
+  }
+  .status{
+    padding:10px 14px;
+    border-top:1px solid var(--border);
+    color:var(--muted);
+    font-size:.85rem;
+  }
+  .status strong{color:var(--good)}
+  details{border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:12px}
+  summary{cursor:pointer;font-weight:700}
+  .examples button{margin:4px 4px 0 0;font-size:.8rem;padding:8px 10px}
+  @media(max-width:900px){
+    .app{grid-template-columns:1fr}
+    .output-wrap{min-height:auto}
+    #code{min-height:520px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mozaic Script Builder</h1>
+  <p>Describe a MIDI tool, choose features, then generate an editable Mozaic script.</p>
+</header>
+
+<main class="app">
+  <section class="panel">
+    <h2>1. Describe your script</h2>
+    <div class="content">
+      <div class="field">
+        <label for="spec">User specification</label>
+        <textarea id="spec" placeholder="Example: Create a 16-step Euclidean bass sequencer in D minor with probability, octave variation, swing, randomise, preview and MIDI channel 2."></textarea>
+      </div>
+
+      <div class="examples">
+        <label>Example prompts</label>
+        <button class="secondary" data-example="Create a 16-step Euclidean bass sequencer in D minor with probability, octave variation, swing and a randomise button. Send on MIDI channel 2.">Euclidean bass</button>
+        <button class="secondary" data-example="Create a 16-step drum sequencer with kick, snare and hi-hat lanes, probability and randomise. Send drums on MIDI channel 10.">Drum sequencer</button>
+        <button class="secondary" data-example="Create an arpeggiator in C minor with up, down and random modes, octave range, gate length and swing.">Arpeggiator</button>
+      </div>
+
+      <details open>
+        <summary>Structured options</summary>
+        <div style="height:10px"></div>
+
+        <div class="field">
+          <label for="type">Script type</label>
+          <select id="type">
+            <option value="euclidean">Euclidean bass sequencer</option>
+            <option value="step">16-step note sequencer</option>
+            <option value="arp">Arpeggiator</option>
+            <option value="drums">Drum sequencer</option>
+            <option value="cc">MIDI CC controller</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="key">Key</label>
+            <select id="key">
+              <option>C</option><option>C#</option><option>D</option><option>D#</option>
+              <option>E</option><option>F</option><option>F#</option><option>G</option>
+              <option>G#</option><option>A</option><option>A#</option><option>B</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="scale">Scale</label>
+            <select id="scale">
+              <option value="minor">Natural minor</option>
+              <option value="major">Major</option>
+              <option value="dorian">Dorian</option>
+              <option value="pentatonic">Minor pentatonic</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="steps">Steps</label>
+            <select id="steps">
+              <option>8</option><option selected>16</option><option>32</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="channel">MIDI channel</label>
+            <input id="channel" type="number" min="1" max="16" value="2"/>
+          </div>
+        </div>
+
+        <div class="checkrow">
+          <label class="chip"><input type="checkbox" id="prob" checked>Probability</label>
+          <label class="chip"><input type="checkbox" id="oct" checked>Octave variation</label>
+          <label class="chip"><input type="checkbox" id="swing" checked>Swing</label>
+          <label class="chip"><input type="checkbox" id="random" checked>Randomise</label>
+          <label class="chip"><input type="checkbox" id="preview" checked>Preview</label>
+          <label class="chip"><input type="checkbox" id="panic" checked>Panic</label>
+        </div>
+      </details>
+
+      <div class="buttons">
+        <button id="generate" class="good">Generate script</button>
+        <button id="parse" class="secondary">Read prompt</button>
+        <button id="clear" class="secondary">Clear</button>
+      </div>
+
+      <details>
+        <summary>Project storage</summary>
+        <div style="height:10px"></div>
+        <div class="field">
+          <label for="projectName">Project name</label>
+          <input id="projectName" value="My Mozaic Script"/>
+        </div>
+        <div class="buttons">
+          <button id="save" class="secondary">Save locally</button>
+          <button id="load" class="secondary">Load saved</button>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="panel output-wrap">
+    <h2>2. Generated Mozaic script</h2>
+    <div class="toolbar">
+      <button id="copy">Copy</button>
+      <button id="download" class="secondary">Download .mozaic</button>
+      <button id="explain" class="secondary">Add comments</button>
+      <button id="validate" class="warn">Basic validation</button>
+    </div>
+    <textarea id="code" spellcheck="false"></textarea>
+    <div class="status" id="status">Ready.</div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+const scales = {
+  major: [0,2,4,5,7,9,11],
+  minor: [0,2,3,5,7,8,10],
+  dorian: [0,2,3,5,7,9,10],
+  pentatonic: [0,3,5,7,10]
+};
+
+const rootMidi = {
+  "C":36,"C#":37,"D":38,"D#":39,"E":40,"F":41,
+  "F#":42,"G":43,"G#":44,"A":45,"A#":46,"B":47
+};
+
+function setStatus(msg, good=false){
+  $("status").innerHTML = good ? `<strong>${msg}</strong>` : msg;
+}
+
+function parsePrompt(){
+  const text = $("spec").value.toLowerCase();
+
+  if(text.includes("drum")) $("type").value = "drums";
+  else if(text.includes("arpe")) $("type").value = "arp";
+  else if(text.includes("cc")) $("type").value = "cc";
+  else if(text.includes("step sequencer")) $("type").value = "step";
+  else if(text.includes("euclidean")) $("type").value = "euclidean";
+
+  const keys = ["c#","d#","f#","g#","a#","c","d","e","f","g","a","b"];
+  for(const k of keys){
+    const re = new RegExp(`\\b${k.replace("#","\\#")}\\b`, "i");
+    if(re.test(text)){
+      $("key").value = k.toUpperCase();
+      break;
+    }
+  }
+
+  if(text.includes("dorian")) $("scale").value = "dorian";
+  else if(text.includes("pentatonic")) $("scale").value = "pentatonic";
+  else if(text.includes("major")) $("scale").value = "major";
+  else if(text.includes("minor")) $("scale").value = "minor";
+
+  const stepMatch = text.match(/(8|16|32)[ -]?step/);
+  if(stepMatch) $("steps").value = stepMatch[1];
+
+  const chMatch = text.match(/(?:midi )?channel\s*(\d{1,2})/);
+  if(chMatch) $("channel").value = Math.min(16,Math.max(1,Number(chMatch[1])));
+
+  $("prob").checked = text.includes("probability") || $("prob").checked;
+  $("oct").checked = text.includes("octave") || $("oct").checked;
+  $("swing").checked = text.includes("swing") || $("swing").checked;
+  $("random").checked = text.includes("random") || $("random").checked;
+  $("preview").checked = text.includes("preview") || $("preview").checked;
+  $("panic").checked = text.includes("panic") || $("panic").checked;
+
+  setStatus("Prompt read into the structured controls.", true);
+}
+
+function generateEuclidean(){
+  const key = $("key").value;
+  const scaleName = $("scale").value;
+  const scale = scales[scaleName];
+  const steps = Number($("steps").value);
+  const channel = Number($("channel").value)-1;
+  const root = rootMidi[key];
+
+  const prob = $("prob").checked;
+  const oct = $("oct").checked;
+  const swing = $("swing").checked;
+  const random = $("random").checked;
+  const preview = $("preview").checked;
+  const panic = $("panic").checked;
+
+  const degreePattern = Array.from({length:steps}, (_,i)=>{
+    if(i % 8 === 0) return 0;
+    if(i % 4 === 2) return Math.min(4,scale.length-1);
+    if(i % 4 === 0) return Math.min(2,scale.length-1);
+    return 0;
+  });
+
+  return `// Generated by Mozaic Script Builder
+// ${steps}-step Euclidean bass sequencer in ${key} ${scaleName}
+// Conventional MIDI channel ${channel+1}
+
+@OnLoad
+  ShowLayout 0
+  SetShortName {${key} Euclid}
+  SetMetroPPQN 4
+
+  midiChannel = ${channel}
+  rootNote = ${root}
+  scale = [${scale.join(", ")}]
+  degree = [${degreePattern.join(", ")}]
+
+  step = 0
+  enabled = 1
+  pulses = ${Math.max(3,Math.round(steps*0.32))}
+  probability = 90
+  octaveChance = 25
+  swing = 12
+  rotation = 0
+  velocity = 105
+  baseOctave = 0
+
+  ${swing ? "SetMetroSwing swing" : ""}
+
+  SetKnobValue 0, ((pulses - 1) * 127 / ${Math.max(1,steps-1)})
+  SetKnobValue 1, (probability * 127 / 100)
+  SetKnobValue 2, (octaveChance * 127 / 100)
+  SetKnobValue 3, (swing * 127 / 50)
+  SetKnobValue 4, (rotation * 127 / ${Math.max(1,steps-1)})
+  SetKnobValue 5, ((velocity - 40) * 127 / 87)
+
+  LabelKnobs {Euclidean Bass Controls}
+  LabelKnob 0, {Pulses: }, pulses
+  LabelKnob 1, {Probability: }, probability, {%}
+  LabelKnob 2, {Octave jumps: }, octaveChance, {%}
+  LabelKnob 3, {Swing: }, swing, {%}
+  LabelKnob 4, {Rotation: }, rotation
+  LabelKnob 5, {Velocity: }, velocity
+
+  LabelPads {Sequencer Controls}
+  LabelPad 0, {ENABLED}
+  ${random ? "LabelPad 1, {RANDOMISE}" : "LabelPad 1, {UNUSED}"}
+  LabelPad 2, {RESET}
+  ${preview ? `LabelPad 3, {PREVIEW ${key}2}` : "LabelPad 3, {UNUSED}"}
+  ${panic ? "LabelPad 4, {PANIC}" : "LabelPad 4, {UNUSED}"}
+  ${oct ? `LabelPad 5, {BASE: ${key}2}` : "LabelPad 5, {UNUSED}"}
+  LabelPad 6, {${steps} STEPS}
+  LabelPad 7, {MIDI CH ${channel+1}}
+
+  ColorPad 0, 3
+  ColorPad 1, 4
+  ColorPad 2, 2
+  ColorPad 3, 5
+  ColorPad 4, 1
+  ColorPad 5, 6
+
+  Log {Ready: ${key} ${scaleName}, channel ${channel+1}}
+@End
+
+@OnKnobChange
+  if LastKnob = 0
+    pulses = Round (1 + ((GetKnobValue 0) * ${Math.max(1,steps-1)} / 127))
+    LabelKnob 0, {Pulses: }, pulses
+  elseif LastKnob = 1
+    probability = Round ((GetKnobValue 1) * 100 / 127)
+    LabelKnob 1, {Probability: }, probability, {%}
+  elseif LastKnob = 2
+    octaveChance = Round ((GetKnobValue 2) * 100 / 127)
+    LabelKnob 2, {Octave jumps: }, octaveChance, {%}
+  elseif LastKnob = 3
+    swing = Round ((GetKnobValue 3) * 50 / 127)
+    ${swing ? "SetMetroSwing swing" : ""}
+    LabelKnob 3, {Swing: }, swing, {%}
+  elseif LastKnob = 4
+    rotation = Round ((GetKnobValue 4) * ${Math.max(1,steps-1)} / 127)
+    LabelKnob 4, {Rotation: }, rotation
+  elseif LastKnob = 5
+    velocity = Round (40 + ((GetKnobValue 5) * 87 / 127))
+    LabelKnob 5, {Velocity: }, velocity
+  endif
+@End
+
+@OnHostStart
+  step = 0
+@End
+
+@OnHostStop
+  step = 0
+  Call @Panic
+@End
+
+@OnMetroPulse
+  if enabled = 1
+    patternPosition = (step + rotation) % ${steps}
+    euclidValue = (patternPosition * pulses) % ${steps}
+
+    if euclidValue < pulses
+      ${prob ? `chanceRoll = Random 0, 99
+      if chanceRoll < probability` : "if 1 = 1"}
+        scalePosition = degree[step]
+        noteNumber = rootNote + scale[scalePosition]
+
+        if baseOctave = 1
+          noteNumber = noteNumber + 12
+        endif
+
+        ${oct ? `octaveRoll = Random 0, 99
+        if octaveRoll < octaveChance
+          noteNumber = noteNumber + 12
+        endif` : ""}
+
+        noteLength = QuarterNote * 0.35
+        SendMIDINoteOn midiChannel, noteNumber, velocity
+        SendMIDINoteOff midiChannel, noteNumber, 0, noteLength
+        FlashUserLed
+      endif
+    endif
+
+    step = step + 1
+    if step > ${steps-1}
+      step = 0
+    endif
+  endif
+@End
+
+@OnPadDown
+  if LastPad = 0
+    if enabled = 1
+      enabled = 0
+      LabelPad 0, {PAUSED}
+      ColorPad 0, 1
+      Call @Panic
+    else
+      enabled = 1
+      step = 0
+      LabelPad 0, {ENABLED}
+      ColorPad 0, 3
+    endif
+
+  elseif LastPad = 1
+    ${random ? `pulses = Random 3, ${Math.max(4,steps-4)}
+    rotation = Random 0, ${steps-1}
+    probability = Random 75, 100
+    octaveChance = Random 10, 45
+    swing = Random 0, 30
+
+    for i = 0 to ${steps-1}
+      degree[i] = Random 0, ${scale.length-1}
+    endfor
+    degree[0] = 0
+    step = 0
+
+    SetKnobValue 0, ((pulses - 1) * 127 / ${Math.max(1,steps-1)})
+    SetKnobValue 1, (probability * 127 / 100)
+    SetKnobValue 2, (octaveChance * 127 / 100)
+    SetKnobValue 3, (swing * 127 / 50)
+    SetKnobValue 4, (rotation * 127 / ${Math.max(1,steps-1)})
+    ${swing ? "SetMetroSwing swing" : ""}
+    FlashPad 1` : "Log {Randomise is disabled}"}
+
+  elseif LastPad = 2
+    pulses = ${Math.max(3,Math.round(steps*0.32))}
+    probability = 90
+    octaveChance = 25
+    swing = 12
+    rotation = 0
+    velocity = 105
+    baseOctave = 0
+    degree = [${degreePattern.join(", ")}]
+    step = 0
+    LabelPad 5, {BASE: ${key}2}
+    ${swing ? "SetMetroSwing swing" : ""}
+    FlashPad 2
+
+  elseif LastPad = 3
+    ${preview ? `previewNote = rootNote
+    if baseOctave = 1
+      previewNote = previewNote + 12
+    endif
+    SendMIDINoteOn midiChannel, previewNote, velocity
+    SendMIDINoteOff midiChannel, previewNote, 0, 350
+    FlashPad 3` : "Log {Preview is disabled}"}
+
+  elseif LastPad = 4
+    ${panic ? "Call @Panic\n    FlashPad 4" : "Log {Panic is disabled}"}
+
+  elseif LastPad = 5
+    ${oct ? `Call @Panic
+    if baseOctave = 0
+      baseOctave = 1
+      LabelPad 5, {BASE: ${key}3}
+      previewNote = rootNote + 12
+    else
+      baseOctave = 0
+      LabelPad 5, {BASE: ${key}2}
+      previewNote = rootNote
+    endif
+    SendMIDINoteOn midiChannel, previewNote, velocity
+    SendMIDINoteOff midiChannel, previewNote, 0, 350
+    FlashPad 5` : "Log {Octave variation is disabled}"}
+  endif
+@End
+
+@Panic
+  for noteNumber = 0 to 127
+    SendMIDINoteOff midiChannel, noteNumber, 0
+  endfor
+@End
+
+@Description
+Generated ${steps}-step Euclidean bass sequencer.
+Key: ${key} ${scaleName}
+MIDI channel: ${channel+1}
+Start the host transport to run the sequence.
+@End
+`;
+}
+
+function generatePlaceholder(type){
+  const ch = Number($("channel").value)-1;
+  const names = {
+    step:"Step Sequencer",
+    arp:"Arpeggiator",
+    drums:"Drum Sequencer",
+    cc:"MIDI CC Controller"
+  };
+  return `// ${names[type]} template
+// This generator currently provides its most complete output for Euclidean bass.
+// The selected template is intentionally simple and editable.
+
+@OnLoad
+  ShowLayout 0
+  SetShortName {${names[type]}}
+  midiChannel = ${ch}
+  LabelPads {${names[type]}}
+  LabelPad 0, {TRIGGER}
+  Log {Template ready on MIDI channel ${ch+1}}
+@End
+
+@OnPadDown
+  if LastPad = 0
+    SendMIDINoteOn midiChannel, 60, 100
+    SendMIDINoteOff midiChannel, 60, 0, 250
+    FlashPad 0
+  endif
+@End
+`;
+}
+
+function generate(){
+  parsePrompt();
+  const type = $("type").value;
+  const code = type === "euclidean" ? generateEuclidean() : generatePlaceholder(type);
+  $("code").value = code;
+  setStatus("Script generated. Review it in Mozaic and adjust as needed.", true);
+}
+
+function validate(){
+  const code = $("code").value;
+  const issues = [];
+  if(!code.includes("@OnLoad")) issues.push("Missing @OnLoad.");
+  if(!code.includes("@End")) issues.push("No @End blocks found.");
+  const onCount = (code.match(/@\w+/g)||[]).filter(x=>x!=="@End").length;
+  const endCount = (code.match(/@End/g)||[]).length;
+  if(endCount < onCount) issues.push(`Possible unmatched event blocks: ${onCount} handlers, ${endCount} @End markers.`);
+  if(code.includes("midiChannel = 16")) issues.push("Mozaic channels are zero-based; channel 16 should be value 15.");
+  if(issues.length) setStatus("Validation notes: " + issues.join(" "));
+  else setStatus("Basic structural checks passed. Final syntax must still be tested in Mozaic.", true);
+}
+
+$("generate").addEventListener("click", generate);
+$("parse").addEventListener("click", parsePrompt);
+$("clear").addEventListener("click", ()=>{
+  $("spec").value="";
+  $("code").value="";
+  setStatus("Cleared.");
+});
+$("copy").addEventListener("click", async ()=>{
+  await navigator.clipboard.writeText($("code").value);
+  setStatus("Copied to clipboard.", true);
+});
+$("download").addEventListener("click", ()=>{
+  const blob = new Blob([$("code").value], {type:"text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const safe = ($("projectName").value || "mozaic-script").replace(/[^a-z0-9-_]+/gi,"-");
+  a.download = safe + ".mozaic";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setStatus("Downloaded .mozaic file.", true);
+});
+$("validate").addEventListener("click", validate);
+$("explain").addEventListener("click", ()=>{
+  $("code").value = "// Review notes: generated controls, transport handling and MIDI routing are commented below.\n" + $("code").value;
+  setStatus("Added a review note at the top of the script.", true);
+});
+$("save").addEventListener("click", ()=>{
+  const key = "mozaic-builder:" + ($("projectName").value || "default");
+  localStorage.setItem(key, JSON.stringify({
+    spec:$("spec").value,
+    code:$("code").value,
+    type:$("type").value,
+    key:$("key").value,
+    scale:$("scale").value,
+    steps:$("steps").value,
+    channel:$("channel").value
+  }));
+  localStorage.setItem("mozaic-builder:last", key);
+  setStatus("Project saved in this browser.", true);
+});
+$("load").addEventListener("click", ()=>{
+  const key = localStorage.getItem("mozaic-builder:last");
+  if(!key) return setStatus("No saved project found.");
+  const p = JSON.parse(localStorage.getItem(key));
+  Object.entries(p).forEach(([k,v])=>{ if($(k)) $(k).value=v; });
+  $("spec").value=p.spec||"";
+  $("code").value=p.code||"";
+  setStatus("Saved project loaded.", true);
+});
+document.querySelectorAll("[data-example]").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    $("spec").value = btn.dataset.example;
+    parsePrompt();
+  });
+});
+
+$("spec").value = "Create a 16-step Euclidean bass sequencer in D minor with probability, octave variation, swing and a randomise button. Send notes on MIDI channel 2.";
+$("key").value = "D";
+generate();
+</script>
+</body>
+</html>
