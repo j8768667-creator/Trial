@@ -1,656 +1,1038 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Mozaic Script Builder</title>
-<style>
-  :root{
-    --bg:#0f1115;
-    --panel:#171a21;
-    --panel2:#1f2430;
-    --text:#eef2f7;
-    --muted:#9aa4b2;
-    --accent:#7c9cff;
-    --accent2:#a77cff;
-    --border:#303746;
-    --good:#68d391;
-    --warn:#f6c85f;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;
-    font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    background:linear-gradient(135deg,#0d0f14,#141824);
-    color:var(--text);
-    min-height:100vh;
-  }
-  header{
-    padding:18px 20px;
-    border-bottom:1px solid var(--border);
-    background:rgba(15,17,21,.92);
-    backdrop-filter:blur(12px);
-    position:sticky; top:0; z-index:10;
-  }
-  header h1{margin:0;font-size:1.35rem}
-  header p{margin:.35rem 0 0;color:var(--muted);font-size:.92rem}
-  .app{
-    display:grid;
-    grid-template-columns:minmax(300px,380px) 1fr;
-    gap:16px;
-    padding:16px;
-  }
-  .panel{
-    background:rgba(23,26,33,.96);
-    border:1px solid var(--border);
-    border-radius:16px;
-    overflow:hidden;
-    box-shadow:0 12px 30px rgba(0,0,0,.2);
-  }
-  .panel h2{
-    font-size:1rem;
-    margin:0;
-    padding:14px 16px;
-    border-bottom:1px solid var(--border);
-    background:var(--panel2);
-  }
-  .content{padding:14px}
-  label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:6px}
-  textarea,input,select{
-    width:100%;
-    background:#0f131b;
-    color:var(--text);
-    border:1px solid var(--border);
-    border-radius:10px;
-    padding:10px 11px;
-    font:inherit;
-  }
-  textarea{min-height:120px;resize:vertical}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .field{margin-bottom:12px}
-  .checkrow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}
-  .chip{
-    border:1px solid var(--border);
-    background:#111722;
-    color:var(--text);
-    border-radius:999px;
-    padding:8px 10px;
-    cursor:pointer;
-    user-select:none;
-  }
-  .chip input{width:auto;margin-right:6px}
-  .buttons{display:flex;flex-wrap:wrap;gap:8px}
-  button{
-    border:0;
-    border-radius:10px;
-    padding:10px 13px;
-    font-weight:700;
-    cursor:pointer;
-    background:var(--accent);
-    color:#081020;
-  }
-  button.secondary{background:#2a3242;color:var(--text)}
-  button.good{background:var(--good)}
-  button.warn{background:var(--warn)}
-  .output-wrap{display:flex;flex-direction:column;min-height:calc(100vh - 130px)}
-  .toolbar{
-    display:flex;flex-wrap:wrap;gap:8px;
-    padding:12px;border-bottom:1px solid var(--border);background:var(--panel2)
-  }
-  #code{
-    flex:1;
-    min-height:620px;
-    border:0;
-    border-radius:0;
-    background:#0b0e13;
-    color:#d8e2f0;
-    font-family:"SFMono-Regular",Consolas,monospace;
-    font-size:13px;
-    line-height:1.5;
-    padding:16px;
-  }
-  .status{
-    padding:10px 14px;
-    border-top:1px solid var(--border);
-    color:var(--muted);
-    font-size:.85rem;
-  }
-  .status strong{color:var(--good)}
-  details{border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:12px}
-  summary{cursor:pointer;font-weight:700}
-  .examples button{margin:4px 4px 0 0;font-size:.8rem;padding:8px 10px}
-  @media(max-width:900px){
-    .app{grid-template-columns:1fr}
-    .output-wrap{min-height:auto}
-    #code{min-height:520px}
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Melody Forge</title>
+  <style>
+    :root {
+      --bg: #0f1220;
+      --panel: #171b2e;
+      --panel-2: #202641;
+      --text: #f5f7ff;
+      --muted: #aab2d5;
+      --accent: #8ea3ff;
+      --accent-2: #c6d0ff;
+      --danger: #ff7f93;
+      --border: rgba(255,255,255,.09);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(142,163,255,.16), transparent 32rem),
+        linear-gradient(180deg, #0d1020 0%, var(--bg) 100%);
+      color: var(--text);
+    }
+
+    .app {
+      width: min(1120px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4rem);
+      line-height: .95;
+      letter-spacing: -.05em;
+    }
+
+    .subtitle {
+      max-width: 620px;
+      color: var(--muted);
+      margin: 10px 0 0;
+    }
+
+    .badge {
+      padding: 8px 11px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,.04);
+      color: var(--accent-2);
+      font-size: .82rem;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 20px;
+    }
+
+    .panel {
+      background: rgba(23,27,46,.92);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: 0 20px 70px rgba(0,0,0,.25);
+    }
+
+    .controls {
+      padding: 22px;
+    }
+
+    .preview {
+      padding: 22px;
+      min-height: 650px;
+    }
+
+    .control {
+      margin-bottom: 17px;
+    }
+
+    label {
+      display: block;
+      font-size: .85rem;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+
+    select, input[type="number"], input[type="range"] {
+      width: 100%;
+    }
+
+    select, input[type="number"] {
+      appearance: none;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 13px;
+      font-size: .98rem;
+      outline: none;
+    }
+
+    select:focus, input:focus {
+      border-color: rgba(142,163,255,.8);
+      box-shadow: 0 0 0 3px rgba(142,163,255,.12);
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr 54px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .value-pill {
+      text-align: center;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      padding: 8px 6px;
+      border-radius: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 13px;
+      padding: 12px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: .94rem;
+      transition: transform .15s ease, opacity .15s ease, background .15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .primary {
+      background: var(--accent);
+      color: #101424;
+    }
+
+    .secondary {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .wide { grid-column: 1 / -1; }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      color: var(--accent-2);
+    }
+
+    .chords {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+      gap: 9px;
+      margin-bottom: 24px;
+    }
+
+    .chord {
+      min-height: 72px;
+      padding: 10px;
+      border-radius: 13px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .chord strong {
+      font-size: 1.05rem;
+    }
+
+    .chord span {
+      color: var(--muted);
+      font-size: .75rem;
+    }
+
+    .transport {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .status {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 320px;
+      border-radius: 16px;
+      background: #101426;
+      border: 1px solid var(--border);
+    }
+
+    .explanation {
+      margin-top: 18px;
+      padding: 16px;
+      background: rgba(255,255,255,.035);
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: .78rem;
+      line-height: 1.5;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 820px) {
+      header { align-items: start; flex-direction: column; }
+      .grid { grid-template-columns: 1fr; }
+      .preview { min-height: auto; }
+    }
+  </style>
 </head>
 <body>
-<header>
-  <h1>Mozaic Script Builder</h1>
-  <p>Describe a MIDI tool, choose features, then generate an editable Mozaic script.</p>
-</header>
-
-<main class="app">
-  <section class="panel">
-    <h2>1. Describe your script</h2>
-    <div class="content">
-      <div class="field">
-        <label for="spec">User specification</label>
-        <textarea id="spec" placeholder="Example: Create a 16-step Euclidean bass sequencer in D minor with probability, octave variation, swing, randomise, preview and MIDI channel 2."></textarea>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Melody Forge</h1>
+        <p class="subtitle">Generate a chord progression and matching melody from a key, style, mood and length. Preview it in the browser and export a standard MIDI file.</p>
       </div>
+      <div class="badge">Single-file browser app</div>
+    </header>
 
-      <div class="examples">
-        <label>Example prompts</label>
-        <button class="secondary" data-example="Create a 16-step Euclidean bass sequencer in D minor with probability, octave variation, swing and a randomise button. Send on MIDI channel 2.">Euclidean bass</button>
-        <button class="secondary" data-example="Create a 16-step drum sequencer with kick, snare and hi-hat lanes, probability and randomise. Send drums on MIDI channel 10.">Drum sequencer</button>
-        <button class="secondary" data-example="Create an arpeggiator in C minor with up, down and random modes, octave range, gate length and swing.">Arpeggiator</button>
-      </div>
+    <div class="grid">
+      <section class="panel controls">
+        <div class="control">
+          <label for="key">Key</label>
+          <select id="key"></select>
+        </div>
 
-      <details open>
-        <summary>Structured options</summary>
-        <div style="height:10px"></div>
-
-        <div class="field">
-          <label for="type">Script type</label>
-          <select id="type">
-            <option value="euclidean">Euclidean bass sequencer</option>
-            <option value="step">16-step note sequencer</option>
-            <option value="arp">Arpeggiator</option>
-            <option value="drums">Drum sequencer</option>
-            <option value="cc">MIDI CC controller</option>
+        <div class="control">
+          <label for="mode">Mode</label>
+          <select id="mode">
+            <option value="major">Major</option>
+            <option value="minor">Natural minor</option>
+            <option value="dorian">Dorian</option>
+            <option value="mixolydian">Mixolydian</option>
           </select>
         </div>
 
-        <div class="row">
-          <div class="field">
-            <label for="key">Key</label>
-            <select id="key">
-              <option>C</option><option>C#</option><option>D</option><option>D#</option>
-              <option>E</option><option>F</option><option>F#</option><option>G</option>
-              <option>G#</option><option>A</option><option>A#</option><option>B</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="scale">Scale</label>
-            <select id="scale">
-              <option value="minor">Natural minor</option>
-              <option value="major">Major</option>
-              <option value="dorian">Dorian</option>
-              <option value="pentatonic">Minor pentatonic</option>
-            </select>
+        <div class="control">
+          <label for="style">Style</label>
+          <select id="style">
+            <option value="postrock">Cinematic post-rock</option>
+            <option value="minimal">Minimal piano</option>
+            <option value="ambient">Ambient</option>
+            <option value="pop">Modern pop</option>
+            <option value="lofi">Lo-fi</option>
+            <option value="cinematic">Modern film score</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="mood">Mood</label>
+          <select id="mood">
+            <option value="hopeful">Hopeful</option>
+            <option value="melancholic">Melancholic</option>
+            <option value="dark">Dark</option>
+            <option value="peaceful">Peaceful</option>
+            <option value="epic">Epic</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="customChords">Chord progression (optional)</label>
+          <input id="customChords" type="text" placeholder="Am, F, C, G" />
+          <div class="small" style="margin-top:7px">Enter one chord per bar, separated by commas. Supports major, minor, 7, maj7, m7, sus2 and sus4.</div>
+        </div>
+
+        <div class="control">
+          <label for="bars">Length</label>
+          <select id="bars">
+            <option value="8">8 bars</option>
+            <option value="16" selected>16 bars</option>
+            <option value="32">32 bars</option>
+            <option value="64">64 bars</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="tempo">Tempo</label>
+          <div class="range-row">
+            <input id="tempo" type="range" min="55" max="150" value="88" />
+            <div class="value-pill"><span id="tempoValue">88</span></div>
           </div>
         </div>
 
-        <div class="row">
-          <div class="field">
-            <label for="steps">Steps</label>
-            <select id="steps">
-              <option>8</option><option selected>16</option><option>32</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="channel">MIDI channel</label>
-            <input id="channel" type="number" min="1" max="16" value="2"/>
+        <div class="control">
+          <label for="complexity">Melody complexity</label>
+          <div class="range-row">
+            <input id="complexity" type="range" min="1" max="5" value="3" />
+            <div class="value-pill"><span id="complexityValue">3</span></div>
           </div>
         </div>
 
-        <div class="checkrow">
-          <label class="chip"><input type="checkbox" id="prob" checked>Probability</label>
-          <label class="chip"><input type="checkbox" id="oct" checked>Octave variation</label>
-          <label class="chip"><input type="checkbox" id="swing" checked>Swing</label>
-          <label class="chip"><input type="checkbox" id="random" checked>Randomise</label>
-          <label class="chip"><input type="checkbox" id="preview" checked>Preview</label>
-          <label class="chip"><input type="checkbox" id="panic" checked>Panic</label>
+        <div class="control">
+          <label for="energy">Energy</label>
+          <div class="range-row">
+            <input id="energy" type="range" min="1" max="5" value="3" />
+            <div class="value-pill"><span id="energyValue">3</span></div>
+          </div>
         </div>
-      </details>
 
-      <div class="buttons">
-        <button id="generate" class="good">Generate script</button>
-        <button id="parse" class="secondary">Read prompt</button>
-        <button id="clear" class="secondary">Clear</button>
-      </div>
+        <div class="control">
+          <label>Arrangement</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <label style="display:flex;align-items:center;gap:8px;background:var(--panel-2);padding:10px;border-radius:10px">
+              <input id="includeBass" type="checkbox" checked /> Bass line
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;background:var(--panel-2);padding:10px;border-radius:10px">
+              <input id="includeDrums" type="checkbox" checked /> Drums
+            </label>
+          </div>
+        </div>
 
-      <details>
-        <summary>Project storage</summary>
-        <div style="height:10px"></div>
-        <div class="field">
-          <label for="projectName">Project name</label>
-          <input id="projectName" value="My Mozaic Script"/>
+        <div class="button-row">
+          <button id="generateBtn" class="primary wide">Generate composition</button>
+          <button id="newMelodyBtn" class="secondary">New melody</button>
+          <button id="newChordsBtn" class="secondary">New chords</button>
         </div>
-        <div class="buttons">
-          <button id="save" class="secondary">Save locally</button>
-          <button id="load" class="secondary">Load saved</button>
+
+        <p class="small">Audio uses the browser's Web Audio API. MIDI export contains separate chord and melody tracks and should open in Logic, Ableton, GarageBand, Cubase, FL Studio and most notation software.</p>
+      </section>
+
+      <section class="panel preview">
+        <h2 class="section-title">Chord progression</h2>
+        <div id="chords" class="chords"></div>
+
+        <div class="transport">
+          <button id="playBtn" class="primary">▶ Play</button>
+          <button id="stopBtn" class="secondary">■ Stop</button>
+          <button id="downloadBtn" class="secondary">Download MIDI</button>
+          <div id="status" class="status">Ready</div>
         </div>
-      </details>
+
+        <h2 class="section-title">Melody piano roll</h2>
+        <canvas id="pianoRoll" width="1000" height="360"></canvas>
+
+        <h2 class="section-title" style="margin-top:18px">Arrangement</h2>
+        <div id="arrangementSummary" class="explanation"></div>
+
+        <div id="explanation" class="explanation"></div>
+      </section>
     </div>
-  </section>
+  </main>
 
-  <section class="panel output-wrap">
-    <h2>2. Generated Mozaic script</h2>
-    <div class="toolbar">
-      <button id="copy">Copy</button>
-      <button id="download" class="secondary">Download .mozaic</button>
-      <button id="explain" class="secondary">Add comments</button>
-      <button id="validate" class="warn">Basic validation</button>
-    </div>
-    <textarea id="code" spellcheck="false"></textarea>
-    <div class="status" id="status">Ready.</div>
-  </section>
-</main>
+  <script>
+    const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const MODE_INTERVALS = {
+      major: [0,2,4,5,7,9,11],
+      minor: [0,2,3,5,7,8,10],
+      dorian: [0,2,3,5,7,9,10],
+      mixolydian: [0,2,4,5,7,9,10]
+    };
 
-<script>
-const $ = id => document.getElementById(id);
+    const PROGRESSIONS = {
+      postrock: [[0,5,2,6],[0,3,5,4],[0,2,5,3]],
+      minimal: [[0,5,3,4],[0,3,5,3],[0,4,5,3]],
+      ambient: [[0,3,5,1],[0,5,3,6],[0,1,5,3]],
+      pop: [[0,4,5,3],[0,5,3,4],[5,3,0,4]],
+      lofi: [[1,4,0,5],[0,5,1,4],[3,4,2,5]],
+      cinematic: [[0,5,2,6],[0,3,4,5],[0,2,3,6]]
+    };
 
-const scales = {
-  major: [0,2,4,5,7,9,11],
-  minor: [0,2,3,5,7,8,10],
-  dorian: [0,2,3,5,7,9,10],
-  pentatonic: [0,3,5,7,10]
-};
+    const keySelect = document.getElementById('key');
+    NOTE_NAMES.forEach((name, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      option.textContent = name;
+      if (name === 'A') option.selected = true;
+      keySelect.appendChild(option);
+    });
 
-const rootMidi = {
-  "C":36,"C#":37,"D":38,"D#":39,"E":40,"F":41,
-  "F#":42,"G":43,"G#":44,"A":45,"A#":46,"B":47
-};
+    const els = {
+      mode: document.getElementById('mode'),
+      style: document.getElementById('style'),
+      mood: document.getElementById('mood'),
+      bars: document.getElementById('bars'),
+      tempo: document.getElementById('tempo'),
+      complexity: document.getElementById('complexity'),
+      energy: document.getElementById('energy'),
+      customChords: document.getElementById('customChords'),
+      includeBass: document.getElementById('includeBass'),
+      includeDrums: document.getElementById('includeDrums'),
+      arrangementSummary: document.getElementById('arrangementSummary'),
+      chords: document.getElementById('chords'),
+      canvas: document.getElementById('pianoRoll'),
+      explanation: document.getElementById('explanation'),
+      status: document.getElementById('status')
+    };
 
-function setStatus(msg, good=false){
-  $("status").innerHTML = good ? `<strong>${msg}</strong>` : msg;
-}
+    ['tempo','complexity','energy'].forEach(id => {
+      const input = document.getElementById(id);
+      const output = document.getElementById(id + 'Value');
+      input.addEventListener('input', () => output.textContent = input.value);
+    });
 
-function parsePrompt(){
-  const text = $("spec").value.toLowerCase();
+    let composition = null;
+    let audioContext = null;
+    let activeNodes = [];
+    let playbackTimer = null;
 
-  if(text.includes("drum")) $("type").value = "drums";
-  else if(text.includes("arpe")) $("type").value = "arp";
-  else if(text.includes("cc")) $("type").value = "cc";
-  else if(text.includes("step sequencer")) $("type").value = "step";
-  else if(text.includes("euclidean")) $("type").value = "euclidean";
-
-  const keys = ["c#","d#","f#","g#","a#","c","d","e","f","g","a","b"];
-  for(const k of keys){
-    const re = new RegExp(`\\b${k.replace("#","\\#")}\\b`, "i");
-    if(re.test(text)){
-      $("key").value = k.toUpperCase();
-      break;
+    function pick(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
     }
-  }
 
-  if(text.includes("dorian")) $("scale").value = "dorian";
-  else if(text.includes("pentatonic")) $("scale").value = "pentatonic";
-  else if(text.includes("major")) $("scale").value = "major";
-  else if(text.includes("minor")) $("scale").value = "minor";
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
 
-  const stepMatch = text.match(/(8|16|32)[ -]?step/);
-  if(stepMatch) $("steps").value = stepMatch[1];
+    function midiToName(midi) {
+      return NOTE_NAMES[midi % 12] + (Math.floor(midi / 12) - 1);
+    }
 
-  const chMatch = text.match(/(?:midi )?channel\s*(\d{1,2})/);
-  if(chMatch) $("channel").value = Math.min(16,Math.max(1,Number(chMatch[1])));
+    function degreeChord(rootPc, mode, degree) {
+      const scale = MODE_INTERVALS[mode];
+      const root = rootPc + scale[degree];
+      const third = rootPc + scale[(degree + 2) % 7] + ((degree + 2) >= 7 ? 12 : 0);
+      const fifth = rootPc + scale[(degree + 4) % 7] + ((degree + 4) >= 7 ? 12 : 0);
+      return [root, third, fifth];
+    }
 
-  $("prob").checked = text.includes("probability") || $("prob").checked;
-  $("oct").checked = text.includes("octave") || $("oct").checked;
-  $("swing").checked = text.includes("swing") || $("swing").checked;
-  $("random").checked = text.includes("random") || $("random").checked;
-  $("preview").checked = text.includes("preview") || $("preview").checked;
-  $("panic").checked = text.includes("panic") || $("panic").checked;
+    function chordName(rootPc, mode, degree) {
+      const chord = degreeChord(rootPc, mode, degree);
+      const intervals = [chord[1] - chord[0], chord[2] - chord[0]];
+      let suffix = '';
+      if (intervals[0] === 3 && intervals[1] === 7) suffix = 'm';
+      if (intervals[0] === 3 && intervals[1] === 6) suffix = 'dim';
+      return NOTE_NAMES[chord[0] % 12] + suffix;
+    }
 
-  setStatus("Prompt read into the structured controls.", true);
-}
+    function parseChordSymbol(symbol) {
+      const cleaned = symbol.trim().replace(/\s+/g, '');
+      const match = cleaned.match(/^([A-Ga-g])([#b]?)(maj7|m7|sus2|sus4|7|m|min|maj)?$/);
+      if (!match) return null;
 
-function generateEuclidean(){
-  const key = $("key").value;
-  const scaleName = $("scale").value;
-  const scale = scales[scaleName];
-  const steps = Number($("steps").value);
-  const channel = Number($("channel").value)-1;
-  const root = rootMidi[key];
+      const letterMap = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+      let root = letterMap[match[1].toUpperCase()];
+      if (match[2] === '#') root += 1;
+      if (match[2] === 'b') root -= 1;
+      root = (root + 12) % 12;
 
-  const prob = $("prob").checked;
-  const oct = $("oct").checked;
-  const swing = $("swing").checked;
-  const random = $("random").checked;
-  const preview = $("preview").checked;
-  const panic = $("panic").checked;
+      const quality = match[3] || 'maj';
+      let intervals = [0,4,7];
+      if (quality === 'm' || quality === 'min') intervals = [0,3,7];
+      if (quality === '7') intervals = [0,4,7,10];
+      if (quality === 'maj7') intervals = [0,4,7,11];
+      if (quality === 'm7') intervals = [0,3,7,10];
+      if (quality === 'sus2') intervals = [0,2,7];
+      if (quality === 'sus4') intervals = [0,5,7];
 
-  const degreePattern = Array.from({length:steps}, (_,i)=>{
-    if(i % 8 === 0) return 0;
-    if(i % 4 === 2) return Math.min(4,scale.length-1);
-    if(i % 4 === 0) return Math.min(2,scale.length-1);
-    return 0;
-  });
+      return {
+        name: cleaned,
+        rootPc: root,
+        notes: intervals.map(i => 48 + ((root + i - 48 + 120) % 12))
+      };
+    }
 
-  return `// Generated by Mozaic Script Builder
-// ${steps}-step Euclidean bass sequencer in ${key} ${scaleName}
-// Conventional MIDI channel ${channel+1}
+    function customProgression(settings) {
+      const raw = settings.customChords.trim();
+      if (!raw) return null;
 
-@OnLoad
-  ShowLayout 0
-  SetShortName {${key} Euclid}
-  SetMetroPPQN 4
+      const parsed = raw.split(',').map(parseChordSymbol);
+      if (parsed.some(chord => !chord)) {
+        throw new Error('One or more chord names are not recognised.');
+      }
 
-  midiChannel = ${channel}
-  rootNote = ${root}
-  scale = [${scale.join(", ")}]
-  degree = [${degreePattern.join(", ")}]
+      const progression = [];
+      for (let bar = 0; bar < settings.bars; bar++) {
+        const chord = parsed[bar % parsed.length];
+        progression.push({
+          bar,
+          degree: 0,
+          name: chord.name,
+          rootPc: chord.rootPc,
+          notes: chord.notes.slice()
+        });
+      }
+      return progression;
+    }
 
-  step = 0
-  enabled = 1
-  pulses = ${Math.max(3,Math.round(steps*0.32))}
-  probability = 90
-  octaveChance = 25
-  swing = 12
-  rotation = 0
-  velocity = 105
-  baseOctave = 0
+    function makeProgression(settings) {
+      const pattern = pick(PROGRESSIONS[settings.style]);
+      const chordsPerPattern = pattern.length;
+      const progression = [];
 
-  ${swing ? "SetMetroSwing swing" : ""}
+      for (let bar = 0; bar < settings.bars; bar++) {
+        let degree = pattern[bar % chordsPerPattern];
 
-  SetKnobValue 0, ((pulses - 1) * 127 / ${Math.max(1,steps-1)})
-  SetKnobValue 1, (probability * 127 / 100)
-  SetKnobValue 2, (octaveChance * 127 / 100)
-  SetKnobValue 3, (swing * 127 / 50)
-  SetKnobValue 4, (rotation * 127 / ${Math.max(1,steps-1)})
-  SetKnobValue 5, ((velocity - 40) * 127 / 87)
+        if (bar === settings.bars - 1) degree = 0;
+        if (bar === settings.bars - 2 && settings.mood === 'epic') degree = 4;
+        if (settings.mood === 'dark' && Math.random() < .16) degree = 6;
+        if (settings.mood === 'hopeful' && Math.random() < .12) degree = 3;
 
-  LabelKnobs {Euclidean Bass Controls}
-  LabelKnob 0, {Pulses: }, pulses
-  LabelKnob 1, {Probability: }, probability, {%}
-  LabelKnob 2, {Octave jumps: }, octaveChance, {%}
-  LabelKnob 3, {Swing: }, swing, {%}
-  LabelKnob 4, {Rotation: }, rotation
-  LabelKnob 5, {Velocity: }, velocity
+        const pcs = degreeChord(settings.rootPc, settings.mode, degree);
+        progression.push({
+          bar,
+          degree,
+          name: chordName(settings.rootPc, settings.mode, degree),
+          rootPc: pcs[0] % 12,
+          notes: pcs.map(pc => 48 + ((pc - 48 + 120) % 12))
+        });
+      }
 
-  LabelPads {Sequencer Controls}
-  LabelPad 0, {ENABLED}
-  ${random ? "LabelPad 1, {RANDOMISE}" : "LabelPad 1, {UNUSED}"}
-  LabelPad 2, {RESET}
-  ${preview ? `LabelPad 3, {PREVIEW ${key}2}` : "LabelPad 3, {UNUSED}"}
-  ${panic ? "LabelPad 4, {PANIC}" : "LabelPad 4, {UNUSED}"}
-  ${oct ? `LabelPad 5, {BASE: ${key}2}` : "LabelPad 5, {UNUSED}"}
-  LabelPad 6, {${steps} STEPS}
-  LabelPad 7, {MIDI CH ${channel+1}}
+      return progression;
+    }
 
-  ColorPad 0, 3
-  ColorPad 1, 4
-  ColorPad 2, 2
-  ColorPad 3, 5
-  ColorPad 4, 1
-  ColorPad 5, 6
+    function makeMotif(settings, chord) {
+      const scale = MODE_INTERVALS[settings.mode];
+      const noteCount = settings.complexity <= 2 ? 4 : settings.complexity === 3 ? 6 : 8;
+      const steps = [];
 
-  Log {Ready: ${key} ${scaleName}, channel ${channel+1}}
-@End
+      let degree = Math.floor(Math.random() * 5);
+      for (let i = 0; i < noteCount; i++) {
+        if (i === 0 || i === noteCount - 1 || Math.random() < .42) {
+          const chordDegrees = [chord.degree, (chord.degree + 2) % 7, (chord.degree + 4) % 7];
+          degree = pick(chordDegrees);
+        } else {
+          degree = clamp(degree + pick([-2,-1,1,2]), 0, 6);
+        }
+        steps.push(scale[degree]);
+      }
+      return steps;
+    }
 
-@OnKnobChange
-  if LastKnob = 0
-    pulses = Round (1 + ((GetKnobValue 0) * ${Math.max(1,steps-1)} / 127))
-    LabelKnob 0, {Pulses: }, pulses
-  elseif LastKnob = 1
-    probability = Round ((GetKnobValue 1) * 100 / 127)
-    LabelKnob 1, {Probability: }, probability, {%}
-  elseif LastKnob = 2
-    octaveChance = Round ((GetKnobValue 2) * 100 / 127)
-    LabelKnob 2, {Octave jumps: }, octaveChance, {%}
-  elseif LastKnob = 3
-    swing = Round ((GetKnobValue 3) * 50 / 127)
-    ${swing ? "SetMetroSwing swing" : ""}
-    LabelKnob 3, {Swing: }, swing, {%}
-  elseif LastKnob = 4
-    rotation = Round ((GetKnobValue 4) * ${Math.max(1,steps-1)} / 127)
-    LabelKnob 4, {Rotation: }, rotation
-  elseif LastKnob = 5
-    velocity = Round (40 + ((GetKnobValue 5) * 87 / 127))
-    LabelKnob 5, {Velocity: }, velocity
-  endif
-@End
+    function generateMelody(settings, progression, preserveMotif = false) {
+      const melody = [];
+      const beatsPerBar = 4;
+      const baseOctave = settings.style === 'ambient' ? 72 : 69;
+      let motif = makeMotif(settings, progression[0]);
+      const notesPerBar = settings.complexity <= 2 ? 4 : settings.complexity === 3 ? 6 : 8;
 
-@OnHostStart
-  step = 0
-@End
+      for (let bar = 0; bar < settings.bars; bar++) {
+        const chord = progression[bar];
+        const variation = bar % 4;
+        const localMotif = motif.slice();
 
-@OnHostStop
-  step = 0
-  Call @Panic
-@End
+        if (variation === 1 && localMotif.length > 2) {
+          localMotif[localMotif.length - 1] += pick([-2, 2]);
+        }
+        if (variation === 2) {
+          localMotif.reverse();
+        }
+        if (variation === 3 && settings.energy >= 4) {
+          localMotif.forEach((_, i) => {
+            if (i % 2) localMotif[i] += 12;
+          });
+        }
 
-@OnMetroPulse
-  if enabled = 1
-    patternPosition = (step + rotation) % ${steps}
-    euclidValue = (patternPosition * pulses) % ${steps}
+        const duration = beatsPerBar / notesPerBar;
+        for (let i = 0; i < notesPerBar; i++) {
+          let pitch = baseOctave + localMotif[i % localMotif.length];
+          const chordTones = chord.notes.map(n => n % 12);
 
-    if euclidValue < pulses
-      ${prob ? `chanceRoll = Random 0, 99
-      if chanceRoll < probability` : "if 1 = 1"}
-        scalePosition = degree[step]
-        noteNumber = rootNote + scale[scalePosition]
+          if (i === 0 || i === notesPerBar - 1) {
+            const nearest = chordTones
+              .map(pc => {
+                let candidate = baseOctave + ((pc - baseOctave + 12) % 12);
+                while (candidate > 83) candidate -= 12;
+                return candidate;
+              })
+              .sort((a,b) => Math.abs(a - pitch) - Math.abs(b - pitch))[0];
+            pitch = nearest;
+          }
 
-        if baseOctave = 1
-          noteNumber = noteNumber + 12
-        endif
+          pitch = clamp(pitch, 60, 84);
+          const restChance = settings.style === 'ambient' ? .18 : settings.complexity <= 2 ? .12 : .05;
+          if (Math.random() < restChance && i !== 0) continue;
 
-        ${oct ? `octaveRoll = Random 0, 99
-        if octaveRoll < octaveChance
-          noteNumber = noteNumber + 12
-        endif` : ""}
+          melody.push({
+            pitch,
+            startBeat: bar * beatsPerBar + i * duration,
+            duration: duration * (settings.style === 'ambient' ? 1.8 : .88),
+            velocity: clamp(72 + settings.energy * 7 + Math.floor(Math.random() * 10), 55, 116),
+            bar
+          });
+        }
+      }
 
-        noteLength = QuarterNote * 0.35
-        SendMIDINoteOn midiChannel, noteNumber, velocity
-        SendMIDINoteOff midiChannel, noteNumber, 0, noteLength
-        FlashUserLed
-      endif
-    endif
+      const final = melody[melody.length - 1];
+      if (final) {
+        final.pitch = 60 + settings.rootPc;
+        while (final.pitch < 67) final.pitch += 12;
+        final.duration = 2;
+      }
+      return melody;
+    }
 
-    step = step + 1
-    if step > ${steps-1}
-      step = 0
-    endif
-  endif
-@End
+    function generateBass(settings, progression) {
+      if (!settings.includeBass) return [];
+      const bass = [];
+      const patterns = {
+        postrock: [0, 2],
+        minimal: [0, 2],
+        ambient: [0],
+        pop: [0, 1, 2, 3],
+        lofi: [0, 1.5, 2.5, 3.5],
+        cinematic: [0, 1, 2, 3]
+      };
+      const starts = patterns[settings.style] || [0,2];
 
-@OnPadDown
-  if LastPad = 0
-    if enabled = 1
-      enabled = 0
-      LabelPad 0, {PAUSED}
-      ColorPad 0, 1
-      Call @Panic
-    else
-      enabled = 1
-      step = 0
-      LabelPad 0, {ENABLED}
-      ColorPad 0, 3
-    endif
+      progression.forEach(chord => {
+        starts.forEach((beat, index) => {
+          let pitch = 36 + chord.rootPc;
+          if (settings.style === 'pop' && index === 2 && chord.notes[1]) {
+            pitch = 36 + (chord.notes[1] % 12);
+          }
+          bass.push({
+            pitch,
+            startBeat: chord.bar * 4 + beat,
+            duration: starts.length === 1 ? 3.8 : Math.max(.4, 4 / starts.length * .86),
+            velocity: 68 + settings.energy * 6,
+            bar: chord.bar
+          });
+        });
+      });
+      return bass;
+    }
 
-  elseif LastPad = 1
-    ${random ? `pulses = Random 3, ${Math.max(4,steps-4)}
-    rotation = Random 0, ${steps-1}
-    probability = Random 75, 100
-    octaveChance = Random 10, 45
-    swing = Random 0, 30
+    function generateDrums(settings) {
+      if (!settings.includeDrums) return [];
+      const drums = [];
+      const kick = 36, snare = 38, hat = 42, crash = 49;
+      const add = (pitch, startBeat, duration=.12, velocity=90) =>
+        drums.push({pitch, startBeat, duration, velocity});
 
-    for i = 0 to ${steps-1}
-      degree[i] = Random 0, ${scale.length-1}
-    endfor
-    degree[0] = 0
-    step = 0
+      for (let bar = 0; bar < settings.bars; bar++) {
+        const start = bar * 4;
+        if (bar === 0 || (settings.energy >= 4 && bar % 8 === 0)) add(crash, start, .25, 96);
 
-    SetKnobValue 0, ((pulses - 1) * 127 / ${Math.max(1,steps-1)})
-    SetKnobValue 1, (probability * 127 / 100)
-    SetKnobValue 2, (octaveChance * 127 / 100)
-    SetKnobValue 3, (swing * 127 / 50)
-    SetKnobValue 4, (rotation * 127 / ${Math.max(1,steps-1)})
-    ${swing ? "SetMetroSwing swing" : ""}
-    FlashPad 1` : "Log {Randomise is disabled}"}
+        if (settings.style === 'ambient') {
+          add(kick, start, .18, 72);
+          add(snare, start + 2, .18, 62);
+          for (let b = 0; b < 4; b += 1) add(hat, start + b, .08, 48);
+        } else if (settings.style === 'lofi') {
+          add(kick, start, .16, 82);
+          add(kick, start + 2.5, .16, 70);
+          add(snare, start + 1, .16, 84);
+          add(snare, start + 3, .16, 88);
+          for (let b = 0; b < 4; b += .5) add(hat, start + b, .06, b % 1 === 0 ? 52 : 42);
+        } else {
+          add(kick, start, .16, 92);
+          add(kick, start + 2, .16, 82);
+          add(snare, start + 1, .16, 92);
+          add(snare, start + 3, .16, 98);
+          const hatStep = settings.energy >= 4 ? .5 : 1;
+          for (let b = 0; b < 4; b += hatStep) add(hat, start + b, .06, b % 1 === 0 ? 58 : 48);
+        }
+      }
+      return drums;
+    }
 
-  elseif LastPad = 2
-    pulses = ${Math.max(3,Math.round(steps*0.32))}
-    probability = 90
-    octaveChance = 25
-    swing = 12
-    rotation = 0
-    velocity = 105
-    baseOctave = 0
-    degree = [${degreePattern.join(", ")}]
-    step = 0
-    LabelPad 5, {BASE: ${key}2}
-    ${swing ? "SetMetroSwing swing" : ""}
-    FlashPad 2
+    function settingsFromUI() {
+      return {
+        rootPc: Number(keySelect.value),
+        mode: els.mode.value,
+        style: els.style.value,
+        mood: els.mood.value,
+        bars: Number(els.bars.value),
+        tempo: Number(els.tempo.value),
+        complexity: Number(els.complexity.value),
+        energy: Number(els.energy.value),
+        customChords: els.customChords.value,
+        includeBass: els.includeBass.checked,
+        includeDrums: els.includeDrums.checked
+      };
+    }
 
-  elseif LastPad = 3
-    ${preview ? `previewNote = rootNote
-    if baseOctave = 1
-      previewNote = previewNote + 12
-    endif
-    SendMIDINoteOn midiChannel, previewNote, velocity
-    SendMIDINoteOff midiChannel, previewNote, 0, 350
-    FlashPad 3` : "Log {Preview is disabled}"}
+    function generateAll() {
+      stopPlayback();
+      const settings = settingsFromUI();
+      try {
+        const progression = customProgression(settings) || makeProgression(settings);
+        const melody = generateMelody(settings, progression);
+        const bass = generateBass(settings, progression);
+        const drums = generateDrums(settings);
+        composition = { settings, progression, melody, bass, drums };
+        render();
+      } catch (error) {
+        els.status.textContent = error.message;
+      }
+    }
 
-  elseif LastPad = 4
-    ${panic ? "Call @Panic\n    FlashPad 4" : "Log {Panic is disabled}"}
+    function regenerateMelody() {
+      if (!composition) return generateAll();
+      stopPlayback();
+      composition.settings = settingsFromUI();
+      composition.melody = generateMelody(composition.settings, composition.progression);
+      composition.bass = generateBass(composition.settings, composition.progression);
+      composition.drums = generateDrums(composition.settings);
+      render();
+    }
 
-  elseif LastPad = 5
-    ${oct ? `Call @Panic
-    if baseOctave = 0
-      baseOctave = 1
-      LabelPad 5, {BASE: ${key}3}
-      previewNote = rootNote + 12
-    else
-      baseOctave = 0
-      LabelPad 5, {BASE: ${key}2}
-      previewNote = rootNote
-    endif
-    SendMIDINoteOn midiChannel, previewNote, velocity
-    SendMIDINoteOff midiChannel, previewNote, 0, 350
-    FlashPad 5` : "Log {Octave variation is disabled}"}
-  endif
-@End
+    function regenerateChords() {
+      stopPlayback();
+      const settings = settingsFromUI();
+      try {
+        const progression = customProgression(settings) || makeProgression(settings);
+        const melody = generateMelody(settings, progression);
+        const bass = generateBass(settings, progression);
+        const drums = generateDrums(settings);
+        composition = { settings, progression, melody, bass, drums };
+        render();
+      } catch (error) {
+        els.status.textContent = error.message;
+      }
+    }
 
-@Panic
-  for noteNumber = 0 to 127
-    SendMIDINoteOff midiChannel, noteNumber, 0
-  endfor
-@End
+    function render() {
+      renderChords();
+      renderPianoRoll();
+      renderArrangementSummary();
+      renderExplanation();
+      els.status.textContent = `${composition.settings.bars} bars · ${composition.settings.tempo} BPM`;
+    }
 
-@Description
-Generated ${steps}-step Euclidean bass sequencer.
-Key: ${key} ${scaleName}
-MIDI channel: ${channel+1}
-Start the host transport to run the sequence.
-@End
-`;
-}
+    function renderChords() {
+      els.chords.innerHTML = '';
+      composition.progression.forEach(chord => {
+        const div = document.createElement('div');
+        div.className = 'chord';
+        div.innerHTML = `<strong>${chord.name}</strong><span>Bar ${chord.bar + 1}</span>`;
+        els.chords.appendChild(div);
+      });
+    }
 
-function generatePlaceholder(type){
-  const ch = Number($("channel").value)-1;
-  const names = {
-    step:"Step Sequencer",
-    arp:"Arpeggiator",
-    drums:"Drum Sequencer",
-    cc:"MIDI CC Controller"
-  };
-  return `// ${names[type]} template
-// This generator currently provides its most complete output for Euclidean bass.
-// The selected template is intentionally simple and editable.
+    function renderPianoRoll() {
+      const canvas = els.canvas;
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
 
-@OnLoad
-  ShowLayout 0
-  SetShortName {${names[type]}}
-  midiChannel = ${ch}
-  LabelPads {${names[type]}}
-  LabelPad 0, {TRIGGER}
-  Log {Template ready on MIDI channel ${ch+1}}
-@End
+      ctx.fillStyle = '#101426';
+      ctx.fillRect(0, 0, width, height);
 
-@OnPadDown
-  if LastPad = 0
-    SendMIDINoteOn midiChannel, 60, 100
-    SendMIDINoteOff midiChannel, 60, 0, 250
-    FlashPad 0
-  endif
-@End
-`;
-}
+      const totalBeats = composition.settings.bars * 4;
+      const minPitch = 60;
+      const maxPitch = 84;
+      const rowHeight = height / (maxPitch - minPitch + 1);
 
-function generate(){
-  parsePrompt();
-  const type = $("type").value;
-  const code = type === "euclidean" ? generateEuclidean() : generatePlaceholder(type);
-  $("code").value = code;
-  setStatus("Script generated. Review it in Mozaic and adjust as needed.", true);
-}
+      for (let p = minPitch; p <= maxPitch; p++) {
+        const y = height - (p - minPitch + 1) * rowHeight;
+        const black = [1,3,6,8,10].includes(p % 12);
+        ctx.fillStyle = black ? 'rgba(255,255,255,.018)' : 'rgba(255,255,255,.032)';
+        ctx.fillRect(0, y, width, rowHeight);
+      }
 
-function validate(){
-  const code = $("code").value;
-  const issues = [];
-  if(!code.includes("@OnLoad")) issues.push("Missing @OnLoad.");
-  if(!code.includes("@End")) issues.push("No @End blocks found.");
-  const onCount = (code.match(/@\w+/g)||[]).filter(x=>x!=="@End").length;
-  const endCount = (code.match(/@End/g)||[]).length;
-  if(endCount < onCount) issues.push(`Possible unmatched event blocks: ${onCount} handlers, ${endCount} @End markers.`);
-  if(code.includes("midiChannel = 16")) issues.push("Mozaic channels are zero-based; channel 16 should be value 15.");
-  if(issues.length) setStatus("Validation notes: " + issues.join(" "));
-  else setStatus("Basic structural checks passed. Final syntax must still be tested in Mozaic.", true);
-}
+      for (let beat = 0; beat <= totalBeats; beat++) {
+        const x = beat / totalBeats * width;
+        ctx.strokeStyle = beat % 4 === 0 ? 'rgba(198,208,255,.25)' : 'rgba(255,255,255,.07)';
+        ctx.lineWidth = beat % 4 === 0 ? 1.4 : 1;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
 
-$("generate").addEventListener("click", generate);
-$("parse").addEventListener("click", parsePrompt);
-$("clear").addEventListener("click", ()=>{
-  $("spec").value="";
-  $("code").value="";
-  setStatus("Cleared.");
-});
-$("copy").addEventListener("click", async ()=>{
-  await navigator.clipboard.writeText($("code").value);
-  setStatus("Copied to clipboard.", true);
-});
-$("download").addEventListener("click", ()=>{
-  const blob = new Blob([$("code").value], {type:"text/plain"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  const safe = ($("projectName").value || "mozaic-script").replace(/[^a-z0-9-_]+/gi,"-");
-  a.download = safe + ".mozaic";
-  a.click();
-  URL.revokeObjectURL(a.href);
-  setStatus("Downloaded .mozaic file.", true);
-});
-$("validate").addEventListener("click", validate);
-$("explain").addEventListener("click", ()=>{
-  $("code").value = "// Review notes: generated controls, transport handling and MIDI routing are commented below.\n" + $("code").value;
-  setStatus("Added a review note at the top of the script.", true);
-});
-$("save").addEventListener("click", ()=>{
-  const key = "mozaic-builder:" + ($("projectName").value || "default");
-  localStorage.setItem(key, JSON.stringify({
-    spec:$("spec").value,
-    code:$("code").value,
-    type:$("type").value,
-    key:$("key").value,
-    scale:$("scale").value,
-    steps:$("steps").value,
-    channel:$("channel").value
-  }));
-  localStorage.setItem("mozaic-builder:last", key);
-  setStatus("Project saved in this browser.", true);
-});
-$("load").addEventListener("click", ()=>{
-  const key = localStorage.getItem("mozaic-builder:last");
-  if(!key) return setStatus("No saved project found.");
-  const p = JSON.parse(localStorage.getItem(key));
-  Object.entries(p).forEach(([k,v])=>{ if($(k)) $(k).value=v; });
-  $("spec").value=p.spec||"";
-  $("code").value=p.code||"";
-  setStatus("Saved project loaded.", true);
-});
-document.querySelectorAll("[data-example]").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    $("spec").value = btn.dataset.example;
-    parsePrompt();
-  });
-});
+      composition.melody.forEach(note => {
+        const x = note.startBeat / totalBeats * width;
+        const w = Math.max(3, note.duration / totalBeats * width);
+        const y = height - (note.pitch - minPitch + 1) * rowHeight;
+        ctx.fillStyle = 'rgba(142,163,255,.88)';
+        ctx.fillRect(x + 1, y + 1, Math.max(2, w - 2), Math.max(3, rowHeight - 2));
+      });
+    }
 
-$("spec").value = "Create a 16-step Euclidean bass sequencer in D minor with probability, octave variation, swing and a randomise button. Send notes on MIDI channel 2.";
-$("key").value = "D";
-generate();
-</script>
+    function renderArrangementSummary() {
+      const bassText = composition.settings.includeBass
+        ? `${composition.bass.length} bass notes following the chord roots`
+        : 'Bass line disabled';
+      const drumText = composition.settings.includeDrums
+        ? `${composition.drums.length} drum hits using kick, snare, hi-hat and crash`
+        : 'Drums disabled';
+      els.arrangementSummary.innerHTML = `<strong>Bass:</strong> ${bassText}<br><strong>Drums:</strong> ${drumText}`;
+    }
+
+    function renderExplanation() {
+      const s = composition.settings;
+      const styleText = {
+        postrock: 'open, repeating harmony and a gradually developing motif',
+        minimal: 'a compact repeating figure with restrained movement',
+        ambient: 'longer notes, more space and slower harmonic motion',
+        pop: 'a direct four-chord loop and a strongly anchored melody',
+        lofi: 'gentler phrasing and jazz-influenced harmonic movement',
+        cinematic: 'wide melodic motion, stronger cadences and rising energy'
+      }[s.style];
+
+      els.explanation.innerHTML =
+        `<strong>Why it works:</strong> The piece uses ${styleText}. ` +
+        `Chord tones are favoured on strong beats, while passing notes create motion between them. ` +
+        `The opening motif is repeated with small variations, and the final phrase resolves to ${NOTE_NAMES[s.rootPc]}.`;
+    }
+
+    function frequencyFromMidi(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    function scheduleTone(ctx, destination, midi, start, duration, gainValue, type='sine') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = frequencyFromMidi(midi);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + Math.max(.06, duration));
+      osc.connect(gain).connect(destination);
+      osc.start(start);
+      osc.stop(start + duration + .05);
+      activeNodes.push(osc);
+    }
+
+    async function playComposition() {
+      if (!composition) generateAll();
+      stopPlayback();
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      await audioContext.resume();
+
+      const startTime = audioContext.currentTime + .08;
+      const secondsPerBeat = 60 / composition.settings.tempo;
+      const master = audioContext.createGain();
+      master.gain.value = .72;
+      master.connect(audioContext.destination);
+
+      composition.progression.forEach(chord => {
+        const start = startTime + chord.bar * 4 * secondsPerBeat;
+        chord.notes.forEach((note, idx) => {
+          scheduleTone(audioContext, master, note, start, 3.7 * secondsPerBeat, .045, idx === 0 ? 'triangle' : 'sine');
+        });
+      });
+
+      composition.melody.forEach(note => {
+        const start = startTime + note.startBeat * secondsPerBeat;
+        scheduleTone(audioContext, master, note.pitch, start, note.duration * secondsPerBeat, .08, 'triangle');
+      });
+
+      composition.bass.forEach(note => {
+        const start = startTime + note.startBeat * secondsPerBeat;
+        scheduleTone(audioContext, master, note.pitch, start, note.duration * secondsPerBeat, .075, 'sawtooth');
+      });
+
+      composition.drums.forEach(note => {
+        const start = startTime + note.startBeat * secondsPerBeat;
+        const type = note.pitch === 36 ? 'sine' : 'square';
+        const drumPitch = note.pitch === 36 ? 35 : note.pitch === 38 ? 58 : 82;
+        scheduleTone(audioContext, master, drumPitch, start, note.duration, note.pitch === 42 ? .018 : .035, type);
+      });
+
+      const totalMs = composition.settings.bars * 4 * secondsPerBeat * 1000;
+      els.status.textContent = 'Playing…';
+      playbackTimer = setTimeout(() => {
+        els.status.textContent = 'Finished';
+        activeNodes = [];
+      }, totalMs + 250);
+    }
+
+    function stopPlayback() {
+      if (playbackTimer) clearTimeout(playbackTimer);
+      playbackTimer = null;
+      activeNodes.forEach(node => {
+        try { node.stop(); } catch (_) {}
+      });
+      activeNodes = [];
+      if (audioContext) {
+        audioContext.close().catch(() => {});
+        audioContext = null;
+      }
+      if (composition) els.status.textContent = 'Stopped';
+    }
+
+    function encodeVarLen(value) {
+      let buffer = value & 0x7F;
+      const bytes = [];
+      while ((value >>= 7)) {
+        buffer <<= 8;
+        buffer |= ((value & 0x7F) | 0x80);
+      }
+      while (true) {
+        bytes.push(buffer & 0xFF);
+        if (buffer & 0x80) buffer >>= 8;
+        else break;
+      }
+      return bytes;
+    }
+
+    function textBytes(text) {
+      return Array.from(new TextEncoder().encode(text));
+    }
+
+    function uint32Bytes(n) {
+      return [(n >>> 24)&255, (n >>> 16)&255, (n >>> 8)&255, n&255];
+    }
+
+    function uint16Bytes(n) {
+      return [(n >>> 8)&255, n&255];
+    }
+
+    function makeTrack(events) {
+      events.sort((a,b) => a.tick - b.tick || a.order - b.order);
+      let lastTick = 0;
+      const bytes = [];
+
+      events.forEach(event => {
+        bytes.push(...encodeVarLen(event.tick - lastTick), ...event.data);
+        lastTick = event.tick;
+      });
+
+      bytes.push(0x00, 0xFF, 0x2F, 0x00);
+      return [...textBytes('MTrk'), ...uint32Bytes(bytes.length), ...bytes];
+    }
+
+    function downloadMidi() {
+      if (!composition) generateAll();
+
+      const ppq = 480;
+      const chordEvents = [];
+      const melodyEvents = [];
+      const bassEvents = [];
+      const drumEvents = [];
+      const tempo = Math.round(60000000 / composition.settings.tempo);
+
+      chordEvents.push({tick:0, order:0, data:[0xFF,0x51,0x03,(tempo>>16)&255,(tempo>>8)&255,tempo&255]});
+      chordEvents.push({tick:0, order:0, data:[0xFF,0x58,0x04,0x04,0x02,0x18,0x08]});
+
+      composition.progression.forEach(chord => {
+        const startTick = chord.bar * 4 * ppq;
+        const endTick = startTick + 4 * ppq - 20;
+        chord.notes.forEach(note => {
+          chordEvents.push({tick:startTick, order:1, data:[0x90, note, 64]});
+          chordEvents.push({tick:endTick, order:0, data:[0x80, note, 0]});
+        });
+      });
+
+      composition.melody.forEach(note => {
+        const startTick = Math.round(note.startBeat * ppq);
+        const endTick = Math.max(startTick + 40, Math.round((note.startBeat + note.duration) * ppq));
+        melodyEvents.push({tick:startTick, order:1, data:[0x91, note.pitch, note.velocity]});
+        melodyEvents.push({tick:endTick, order:0, data:[0x81, note.pitch, 0]});
+      });
+
+      composition.bass.forEach(note => {
+        const startTick = Math.round(note.startBeat * ppq);
+        const endTick = Math.max(startTick + 40, Math.round((note.startBeat + note.duration) * ppq));
+        bassEvents.push({tick:startTick, order:1, data:[0x92, note.pitch, note.velocity]});
+        bassEvents.push({tick:endTick, order:0, data:[0x82, note.pitch, 0]});
+      });
+
+      composition.drums.forEach(note => {
+        const startTick = Math.round(note.startBeat * ppq);
+        const endTick = Math.max(startTick + 20, Math.round((note.startBeat + note.duration) * ppq));
+        drumEvents.push({tick:startTick, order:1, data:[0x99, note.pitch, note.velocity]});
+        drumEvents.push({tick:endTick, order:0, data:[0x89, note.pitch, 0]});
+      });
+
+      const tracks = [makeTrack(chordEvents), makeTrack(melodyEvents)];
+      if (composition.settings.includeBass) tracks.push(makeTrack(bassEvents));
+      if (composition.settings.includeDrums) tracks.push(makeTrack(drumEvents));
+
+      const header = [
+        ...textBytes('MThd'),
+        0,0,0,6,
+        ...uint16Bytes(1),
+        ...uint16Bytes(tracks.length),
+        ...uint16Bytes(ppq)
+      ];
+
+      const bytes = new Uint8Array([
+        ...header,
+        ...tracks.flat()
+      ]);
+
+      const blob = new Blob([bytes], {type:'audio/midi'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const s = composition.settings;
+      a.href = url;
+      a.download = `melody-forge-${NOTE_NAMES[s.rootPc]}-${s.mode}-${s.bars}bars.mid`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      els.status.textContent = 'MIDI downloaded';
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', generateAll);
+    document.getElementById('newMelodyBtn').addEventListener('click', regenerateMelody);
+    document.getElementById('newChordsBtn').addEventListener('click', regenerateChords);
+    document.getElementById('playBtn').addEventListener('click', playComposition);
+    document.getElementById('stopBtn').addEventListener('click', stopPlayback);
+    document.getElementById('downloadBtn').addEventListener('click', downloadMidi);
+
+    window.addEventListener('resize', renderPianoRoll);
+    generateAll();
+  </script>
 </body>
 </html>
