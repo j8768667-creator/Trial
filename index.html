@@ -1,1005 +1,358 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chord to MIDI Generator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
-
-        header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px 20px;
-            text-align: center;
-        }
-
-        header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-
-        .content {
-            padding: 40px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .section {
-            margin-bottom: 40px;
-        }
-
-        .section h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.5em;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 10px;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 600;
-            font-size: 0.95em;
-        }
-
-        input[type="text"],
-        input[type="number"],
-        select,
-        input[type="range"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: border-color 0.3s;
-            font-family: monospace;
-        }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        select:focus,
-        input[type="range"]:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        input[type="range"] {
-            padding: 0;
-            height: 8px;
-            cursor: pointer;
-        }
-
-        .range-value {
-            display: inline-block;
-            margin-left: 10px;
-            color: #667eea;
-            font-weight: 600;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
-        }
-
-        @media (max-width: 900px) {
-            .grid-3 {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
-        @media (max-width: 600px) {
-            .grid,
-            .grid-3 {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            flex: 1;
-            min-width: 150px;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-primary:active {
-            transform: translateY(0);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-
-        .status {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: 600;
-            display: none;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            display: block;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            display: block;
-        }
-
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-            display: block;
-        }
-
-        .help-text {
-            font-size: 0.85em;
-            color: #666;
-            margin-top: 5px;
-            font-style: italic;
-        }
-
-        .chord-example {
-            background: #f0f0f0;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 10px;
-            font-family: monospace;
-            color: #333;
-        }
-
-        .genre-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-
-        .genre-tab {
-            padding: 10px 20px;
-            border: 2px solid #ddd;
-            background: white;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
-            font-size: 0.9em;
-        }
-
-        .genre-tab:hover {
-            border-color: #667eea;
-        }
-
-        .genre-tab.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-color: #667eea;
-        }
-
-        .genre-config {
-            display: none;
-        }
-
-        .genre-config.active {
-            display: block;
-        }
-
-        .toggle-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .toggle {
-            padding: 8px 16px;
-            border: 2px solid #ddd;
-            background: white;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
-            font-size: 0.9em;
-        }
-
-        .toggle.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        .debug-info {
-            background: #f5f5f5;
-            padding: 10px;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 0.85em;
-            color: #333;
-            margin-top: 10px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chord Arranger MIDI Generator</title>
+<style>
+:root{
+  --ink:#172033;--muted:#657087;--panel:#fff;--line:#dfe4ee;
+  --a:#667eea;--b:#764ba2;--soft:#f5f7fb;--good:#177245;--bad:#a52a2a
+}
+*{box-sizing:border-box}
+body{margin:0;padding:20px;font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink);
+  background:linear-gradient(135deg,var(--a),var(--b));min-height:100vh}
+.app{max-width:1050px;margin:auto;background:var(--panel);border-radius:18px;overflow:hidden;
+  box-shadow:0 24px 70px rgba(0,0,0,.28)}
+header{padding:34px 24px;color:#fff;text-align:center;background:linear-gradient(135deg,var(--a),var(--b))}
+header h1{margin:0 0 8px;font-size:clamp(1.8rem,4vw,2.7rem)}
+header p{margin:0;opacity:.9}
+main{padding:28px}
+section{margin-bottom:30px}
+h2{font-size:1.18rem;margin:0 0 16px;padding-bottom:9px;border-bottom:3px solid var(--a)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid.two{grid-template-columns:repeat(2,1fr)}
+.field{min-width:0}
+label{display:block;font-weight:700;font-size:.9rem;margin-bottom:7px}
+input,select{width:100%;padding:11px 12px;border:2px solid var(--line);border-radius:9px;
+  font:inherit;background:#fff;color:var(--ink)}
+input:focus,select:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px rgba(102,126,234,.12)}
+input[type=range]{padding:0;border:0;box-shadow:none}
+small{display:block;color:var(--muted);line-height:1.45;margin-top:6px}
+.value{font-weight:800;color:var(--a)}
+.checks{display:flex;gap:14px;flex-wrap:wrap;padding:13px;background:var(--soft);border-radius:10px}
+.checks label{display:flex;align-items:center;gap:7px;margin:0;font-weight:650}
+.checks input{width:auto}
+button{width:100%;border:0;border-radius:10px;padding:14px 18px;font:inherit;font-weight:800;
+  color:#fff;background:linear-gradient(135deg,var(--a),var(--b));cursor:pointer}
+button:hover{filter:brightness(1.05);transform:translateY(-1px)}
+button:disabled{opacity:.65;cursor:not-allowed;transform:none}
+.status{display:none;margin-top:14px;padding:13px;border-radius:9px;font-weight:700;text-align:center}
+.status.ok{display:block;background:#e4f5ea;color:var(--good)}
+.status.err{display:block;background:#fde8e8;color:var(--bad)}
+.summary{margin-top:14px;padding:14px;background:var(--soft);border-radius:10px;color:var(--muted);
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.86rem;line-height:1.55}
+@media(max-width:760px){main{padding:20px}.grid,.grid.two{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🎵 Chord to MIDI Generator</h1>
-            <p>Create professional arrangements from chord progressions</p>
-        </header>
-
-        <div class="content">
-            <!-- Chord Input Section -->
-            <div class="section">
-                <h2>Step 1: Enter Chord Progression</h2>
-                <div class="input-group">
-                    <label for="chords">Chord Progression</label>
-                    <input 
-                        type="text" 
-                        id="chords" 
-                        value="C, F, G, C"
-                        placeholder="e.g., C, Dm, G, C or Cmaj7, Dm7, G7, Cmaj7"
-                    >
-                    <div class="help-text">Separate chords with commas. Examples: C, Dm, G7, Cmaj7, Fmin, Bb</div>
-                </div>
-            </div>
-
-            <!-- Genre Selection -->
-            <div class="section">
-                <h2>Step 2: Select Genre</h2>
-                <div class="genre-tabs">
-                    <button class="genre-tab active" onclick="switchGenre(event, 'dnb')">🥁 D&B</button>
-                    <button class="genre-tab" onclick="switchGenre(event, 'house')">🏠 House</button>
-                    <button class="genre-tab" onclick="switchGenre(event, 'techno')">⚙️ Techno</button>
-                    <button class="genre-tab" onclick="switchGenre(event, 'jazz')">🎷 Jazz</button>
-                    <button class="genre-tab" onclick="switchGenre(event, 'lofi')">✨ Lo-Fi</button>
-                    <button class="genre-tab" onclick="switchGenre(event, 'ambient')">🌙 Ambient</button>
-                    <button class="genre-tab" onclick="switchGenre(event, 'funk')">🕺 Funk</button>
-                    <button class="genre-tab" onclick="switchGenre(event, 'pop')">🎤 Pop</button>
-                    <button class="genre-tab" onclick="switchGenre(event, 'chill')">❄️ Chillwave</button>
-                    <button class="genre-tab" onclick="switchGenre(event, 'soul')">💜 Soul</button>
-                </div>
-            </div>
-
-            <!-- Genre Configs -->
-            <div id="dnb-config" class="genre-config active">
-                <div class="section">
-                    <h2>Drum & Bass Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="dnb-tempo">Tempo (BPM)</label>
-                            <input type="number" id="dnb-tempo" value="170" min="60" max="240" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="dnb-bars">Bars</label>
-                            <input type="number" id="dnb-bars" value="8" min="1" max="32" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label for="dnb-bass">Bass Level</label>
-                            <input type="range" id="dnb-bass" min="0" max="100" value="20" step="5">
-                            <span class="range-value" id="dnb-bass-val">20%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="house-config" class="genre-config">
-                <div class="section">
-                    <h2>House Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="house-tempo">Tempo (BPM)</label>
-                            <input type="number" id="house-tempo" value="128" min="60" max="240" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="house-bars">Bars</label>
-                            <input type="number" id="house-bars" value="16" min="1" max="32" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label for="house-bass">Bass Level</label>
-                            <input type="range" id="house-bass" min="0" max="100" value="15" step="5">
-                            <span class="range-value" id="house-bass-val">15%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="techno-config" class="genre-config">
-                <div class="section">
-                    <h2>Techno Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="techno-tempo">Tempo (BPM)</label>
-                            <input type="number" id="techno-tempo" value="128" min="60" max="240" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="techno-bars">Bars</label>
-                            <input type="number" id="techno-bars" value="16" min="1" max="32" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label for="techno-bass">Bass Level</label>
-                            <input type="range" id="techno-bass" min="0" max="100" value="25" step="5">
-                            <span class="range-value" id="techno-bass-val">25%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="jazz-config" class="genre-config">
-                <div class="section">
-                    <h2>Jazz Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="jazz-tempo">Tempo (BPM)</label>
-                            <input type="number" id="jazz-tempo" value="120" min="60" max="240" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="jazz-bars">Bars</label>
-                            <input type="number" id="jazz-bars" value="12" min="1" max="48" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label for="jazz-bass">Bass Level</label>
-                            <input type="range" id="jazz-bass" min="0" max="100" value="30" step="5">
-                            <span class="range-value" id="jazz-bass-val">30%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="lofi-config" class="genre-config">
-                <div class="section">
-                    <h2>Lo-Fi Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="lofi-tempo">Tempo (BPM)</label>
-                            <input type="number" id="lofi-tempo" value="90" min="60" max="120" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="lofi-bars">Bars</label>
-                            <input type="number" id="lofi-bars" value="12" min="1" max="32" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label for="lofi-bass">Bass Level</label>
-                            <input type="range" id="lofi-bass" min="0" max="100" value="10" step="5">
-                            <span class="range-value" id="lofi-bass-val">10%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="ambient-config" class="genre-config">
-                <div class="section">
-                    <h2>Ambient Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="ambient-tempo">Tempo (BPM)</label>
-                            <input type="number" id="ambient-tempo" value="60" min="30" max="100" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="ambient-bars">Bars</label>
-                            <input type="number" id="ambient-bars" value="32" min="4" max="64" step="4">
-                        </div>
-                        <div class="input-group">
-                            <label for="ambient-bass">Bass Level</label>
-                            <input type="range" id="ambient-bass" min="0" max="100" value="5" step="5">
-                            <span class="range-value" id="ambient-bass-val">5%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="funk-config" class="genre-config">
-                <div class="section">
-                    <h2>Funk Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="funk-tempo">Tempo (BPM)</label>
-                            <input type="number" id="funk-tempo" value="100" min="80" max="140" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="funk-bars">Bars</label>
-                            <input type="number" id="funk-bars" value="12" min="1" max="32" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label for="funk-bass">Bass Level</label>
-                            <input type="range" id="funk-bass" min="0" max="100" value="35" step="5">
-                            <span class="range-value" id="funk-bass-val">35%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="pop-config" class="genre-config">
-                <div class="section">
-                    <h2>Pop Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="pop-tempo">Tempo (BPM)</label>
-                            <input type="number" id="pop-tempo" value="120" min="80" max="140" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="pop-bars">Bars</label>
-                            <input type="number" id="pop-bars" value="16" min="1" max="32" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label for="pop-bass">Bass Level</label>
-                            <input type="range" id="pop-bass" min="0" max="100" value="20" step="5">
-                            <span class="range-value" id="pop-bass-val">20%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="chill-config" class="genre-config">
-                <div class="section">
-                    <h2>Chillwave Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="chill-tempo">Tempo (BPM)</label>
-                            <input type="number" id="chill-tempo" value="85" min="60" max="120" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="chill-bars">Bars</label>
-                            <input type="number" id="chill-bars" value="16" min="4" max="32" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label for="chill-bass">Bass Level</label>
-                            <input type="range" id="chill-bass" min="0" max="100" value="12" step="5">
-                            <span class="range-value" id="chill-bass-val">12%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="soul-config" class="genre-config">
-                <div class="section">
-                    <h2>Soul Settings</h2>
-                    <div class="grid-3">
-                        <div class="input-group">
-                            <label for="soul-tempo">Tempo (BPM)</label>
-                            <input type="number" id="soul-tempo" value="95" min="70" max="130" step="5">
-                        </div>
-                        <div class="input-group">
-                            <label for="soul-bars">Bars</label>
-                            <input type="number" id="soul-bars" value="12" min="1" max="32" step="1">
-                        </div>
-                        <div class="input-group">
-                            <label for="soul-bass">Bass Level</label>
-                            <input type="range" id="soul-bass" min="0" max="100" value="28" step="5">
-                            <span class="range-value" id="soul-bass-val">28%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Instrument Mix Section -->
-            <div class="section">
-                <h2>Step 3: Instrument Mix</h2>
-                <div class="grid-3">
-                    <div class="input-group">
-                        <label for="melody-level">Melody Level</label>
-                        <input type="range" id="melody-level" min="0" max="100" value="85" step="5">
-                        <span class="range-value" id="melody-level-val">85%</span>
-                    </div>
-                    <div class="input-group">
-                        <label for="pad-level">Pad Level</label>
-                        <input type="range" id="pad-level" min="0" max="100" value="70" step="5">
-                        <span class="range-value" id="pad-level-val">70%</span>
-                    </div>
-                    <div class="input-group">
-                        <label for="drum-level">Drum Level</label>
-                        <input type="range" id="drum-level" min="0" max="100" value="80" step="5">
-                        <span class="range-value" id="drum-level-val">80%</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Generation Section -->
-            <div class="section">
-                <h2>Step 4: Generate</h2>
-                <div class="button-group">
-                    <button class="btn-primary" onclick="generateMIDI(event)">
-                        <span id="buttonText">🎹 Generate & Download MIDI</span>
-                    </button>
-                </div>
-                <div id="status" class="status"></div>
-                <div id="debug" class="debug-info" style="display:none;"></div>
-            </div>
-        </div>
+<div class="app">
+<header>
+  <h1>🎹 Chord Arranger</h1>
+  <p>Generate editable, multi-track Standard MIDI files</p>
+</header>
+<main>
+<section>
+  <h2>1. Music</h2>
+  <div class="grid two">
+    <div class="field">
+      <label for="chords">Chord progression</label>
+      <input id="chords" value="Cmaj7, Am7, Dm7, G7">
+      <small>One chord per bar, repeated as needed. Supports sharps, flats, 6, 7, maj7, m7, m9, 9, dim, aug, sus2, sus4, add9 and slash basses.</small>
     </div>
+    <div class="field">
+      <label for="genre">Arrangement style</label>
+      <select id="genre">
+        <option value="dnb">Drum & Bass</option><option value="house">House</option>
+        <option value="techno">Techno</option><option value="jazz">Jazz</option>
+        <option value="lofi" selected>Lo-Fi</option><option value="ambient">Ambient</option>
+        <option value="funk">Funk</option><option value="pop">Pop</option>
+        <option value="chill">Chillwave</option><option value="soul">Soul</option>
+      </select>
+    </div>
+  </div>
+</section>
 
-    <script>
-        let currentGenre = 'dnb';
+<section>
+  <h2>2. Arrangement</h2>
+  <div class="grid">
+    <div class="field"><label for="tempo">Tempo</label><input id="tempo" type="number" min="30" max="240" value="88"></div>
+    <div class="field"><label for="bars">Bars</label><input id="bars" type="number" min="1" max="128" value="16"></div>
+    <div class="field"><label for="seed">Variation seed</label><input id="seed" type="number" min="1" max="999999" value="42"></div>
+    <div class="field"><label for="swing">Swing <span class="value" id="swingOut">12%</span></label><input id="swing" type="range" min="0" max="60" value="12"></div>
+    <div class="field"><label for="humanize">Humanise <span class="value" id="humanizeOut">8%</span></label><input id="humanize" type="range" min="0" max="30" value="8"></div>
+    <div class="field"><label for="velocity">Master velocity <span class="value" id="velocityOut">90%</span></label><input id="velocity" type="range" min="20" max="100" value="90"></div>
+  </div>
+</section>
 
-        const NOTE_MAP = {
-            'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11
-        };
+<section>
+  <h2>3. Tracks</h2>
+  <div class="checks">
+    <label><input id="drums" type="checkbox" checked> Drums</label>
+    <label><input id="bass" type="checkbox" checked> Bass</label>
+    <label><input id="chordTrack" type="checkbox" checked> Chords / pad</label>
+    <label><input id="melody" type="checkbox" checked> Melody</label>
+  </div>
+</section>
 
-        const CHORD_INTERVALS = {
-            'maj': [0, 4, 7],
-            'min': [0, 3, 7],
-            'maj7': [0, 4, 7, 11],
-            'min7': [0, 3, 7, 10],
-            'dom7': [0, 4, 7, 10],
-            '7': [0, 4, 7, 10],
-            'dim': [0, 3, 6],
-            'aug': [0, 4, 8],
-            'sus2': [0, 2, 7],
-            'sus4': [0, 5, 7],
-            'add9': [0, 4, 7, 14],
-            'min9': [0, 3, 7, 10, 14]
-        };
+<section>
+  <h2>4. Export</h2>
+  <button id="generate">Generate and download MIDI</button>
+  <div id="status" class="status"></div>
+  <div id="summary" class="summary">The export uses MIDI format 1, 480 PPQ and separate editable tracks.</div>
+</section>
+</main>
+</div>
 
-        const DRUM_PATTERNS = {
-            dnb: { kick: [0, 0.5, 1.5, 2, 2.75, 3.5], snare: [1, 2.5, 3], hihat: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75] },
-            house: { kick: [0, 1, 2, 3], snare: [1, 3], hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] },
-            techno: { kick: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], snare: [1, 3], hihat: [0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25, 3.75] },
-            jazz: { kick: [0, 0.33, 0.67, 1, 1.67, 2.33, 2.67, 3], snare: [0.5, 1.5, 2.5, 3.5], hihat: [0, 0.33, 0.67, 1, 1.33, 1.67, 2, 2.33, 2.67, 3, 3.33, 3.67] },
-            lofi: { kick: [0, 2], snare: [1, 3], hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] },
-            ambient: { kick: [], snare: [], hihat: [] },
-            funk: { kick: [0, 0.75, 2, 2.75], snare: [1, 3], hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] },
-            pop: { kick: [0, 1, 2, 3], snare: [1, 3], hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] },
-            chill: { kick: [0, 2], snare: [0.5, 2.5], hihat: [0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25, 3.75] },
-            soul: { kick: [0, 1, 2.5], snare: [1, 3], hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }
-        };
+<script>
+"use strict";
 
-        function parseChord(chordStr) {
-            chordStr = chordStr.trim();
-            if (!chordStr) return { root: 0, intervals: [0, 4, 7] };
-            
-            const root = chordStr[0].toUpperCase();
-            let noteOffset = 0;
-            let index = 1;
-            
-            if (chordStr[1] === '#') {
-                noteOffset = 1;
-                index = 2;
-            } else if (chordStr[1] === 'b') {
-                noteOffset = -1;
-                index = 2;
-            }
-            
-            const remaining = chordStr.substring(index).toLowerCase();
-            let chordType = 'maj';
-            for (const type in CHORD_INTERVALS) {
-                if (remaining.includes(type)) {
-                    chordType = type;
-                    break;
-                }
-            }
-            
-            const rootNote = (NOTE_MAP[root] || 0) + noteOffset;
-            const intervals = CHORD_INTERVALS[chordType] || CHORD_INTERVALS['maj'];
-            
-            return { root: rootNote, intervals: intervals };
-        }
+const PPQ = 480, BAR = PPQ * 4;
+const NOTE = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+const QUALITIES = {
+  "": [0,4,7], maj:[0,4,7], m:[0,3,7], min:[0,3,7],
+  "6":[0,4,7,9], m6:[0,3,7,9], "7":[0,4,7,10],
+  maj7:[0,4,7,11], M7:[0,4,7,11], m7:[0,3,7,10], min7:[0,3,7,10],
+  "9":[0,4,7,10,14], maj9:[0,4,7,11,14], m9:[0,3,7,10,14],
+  dim:[0,3,6], dim7:[0,3,6,9], aug:[0,4,8],
+  sus2:[0,2,7], sus4:[0,5,7], add9:[0,4,7,14]
+};
+const STYLE = {
+ dnb:{tempo:172,bass:"dnb",drums:"dnb",pad:"stab",mel:"sync",bassProgram:38,chordProgram:89,melProgram:81},
+ house:{tempo:126,bass:"octave",drums:"house",pad:"stab",mel:"sync",bassProgram:39,chordProgram:90,melProgram:81},
+ techno:{tempo:130,bass:"pulse",drums:"techno",pad:"stab",mel:"sparse",bassProgram:38,chordProgram:91,melProgram:82},
+ jazz:{tempo:118,bass:"walk",drums:"jazz",pad:"comp",mel:"jazz",bassProgram:32,chordProgram:0,melProgram:65},
+ lofi:{tempo:88,bass:"lofi",drums:"lofi",pad:"long",mel:"lofi",bassProgram:33,chordProgram:4,melProgram:11},
+ ambient:{tempo:64,bass:"ambient",drums:"none",pad:"ambient",mel:"ambient",bassProgram:38,chordProgram:89,melProgram:94},
+ funk:{tempo:104,bass:"funk",drums:"funk",pad:"comp",mel:"funk",bassProgram:36,chordProgram:4,melProgram:62},
+ pop:{tempo:118,bass:"pop",drums:"pop",pad:"long",mel:"pop",bassProgram:33,chordProgram:48,melProgram:81},
+ chill:{tempo:84,bass:"lofi",drums:"chill",pad:"ambient",mel:"lofi",bassProgram:38,chordProgram:89,melProgram:85},
+ soul:{tempo:94,bass:"soul",drums:"soul",pad:"comp",mel:"soul",bassProgram:33,chordProgram:4,melProgram:65}
+};
 
-        function generateBassLine(chords, numBars, bassLevel) {
-            const bass = [];
-            if (bassLevel < 5) return bass;
-            
-            const notes = chords.map(c => {
-                const p = parseChord(c);
-                return 36 + p.root;
-            });
-            
-            const bassFrequency = Math.max(1, Math.floor(numBars * (bassLevel / 100)));
-            for (let bar = 0; bar < numBars; bar++) {
-                if (bar % (Math.ceil(numBars / bassFrequency)) === 0) {
-                    const chordIdx = Math.floor((bar * chords.length) / numBars);
-                    const note = notes[chordIdx % notes.length];
-                    bass.push({ time: bar * 4, note: note, velocity: 50 + (bassLevel / 2), duration: 3.5 });
-                }
-            }
-            return bass;
-        }
+function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function hashSeed(n){let x=n|0;return()=>{x|=0;x=x+0x6D2B79F5|0;let t=Math.imul(x^x>>>15,1|x);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function choose(rng,a){return a[Math.floor(rng()*a.length)]}
+function noteNameToPc(s){
+  const m=/^([A-Ga-g])([#b]?)/.exec(s);
+  if(!m) throw new Error("Invalid note: "+s);
+  return (NOTE[m[1].toUpperCase()]+(m[2]==="#"?1:m[2]==="b"?-1:0)+12)%12;
+}
+function parseChord(text){
+  const clean=text.trim().replace(/\s+/g,"");
+  const m=/^([A-Ga-g])([#b]?)([^\/]*)(?:\/([A-Ga-g][#b]?))?$/.exec(clean);
+  if(!m) throw new Error('Cannot understand chord "'+text+'"');
+  const root=noteNameToPc(m[1]+m[2]);
+  let q=m[3]||"";
+  if(q==="minor") q="min"; if(q==="major") q="maj";
+  const aliases={"-":"m","-7":"m7","min9":"m9","Δ7":"maj7","M":"maj"};
+  q=aliases[q]??q;
+  const intervals=QUALITIES[q];
+  if(!intervals) throw new Error('Unsupported chord quality in "'+text+'"');
+  return {name:clean,root,intervals,bass:m[4]?noteNameToPc(m[4]):root,minor:q.startsWith("m")||q.startsWith("min")||q.startsWith("-")};
+}
+function midiAt(pc,around){
+  let n=Math.round((around-pc)/12)*12+pc;
+  while(n<0)n+=12; while(n>127)n-=12; return n;
+}
+function scaleFor(ch){
+  return ch.minor?[0,2,3,5,7,8,10]:[0,2,4,5,7,9,11];
+}
+function chordForBar(chords,bar){return chords[bar%chords.length]}
 
-        function generatePad(chords, numBars, padLevel) {
-            const pad = [];
-            if (padLevel < 5) return pad;
-            
-            const chordData = chords.map(c => parseChord(c));
-            
-            for (let bar = 0; bar < numBars; bar++) {
-                const chordIdx = Math.floor((bar * chords.length) / numBars) % chordData.length;
-                const chord = chordData[chordIdx];
-                
-                const baseNote = 54;
-                let padTime = bar * 4;
-                
-                chord.intervals.forEach(interval => {
-                    pad.push({
-                        time: padTime,
-                        note: baseNote + chord.root + interval,
-                        velocity: Math.round(50 + (padLevel / 2)),
-                        duration: 3.8
-                    });
-                });
-            }
-            return pad;
-        }
+function humanTick(t,rng,amount,allowSwing=true){
+  let x=t;
+  if(allowSwing && Math.round(t/(PPQ/2))%2===1) x+=Math.round(PPQ*.16*amount.swing);
+  x+=Math.round((rng()*2-1)*PPQ*.035*amount.human);
+  return Math.max(0,x);
+}
+function vel(base,rng,amount,accent=0){
+  return clamp(Math.round((base+accent+(rng()*2-1)*8*amount.human)*amount.master),1,127);
+}
+function addNote(track,start,duration,pitch,velocity,channel,rng,amount,swing=true){
+  const s=humanTick(Math.round(start),rng,amount,swing);
+  const d=Math.max(12,Math.round(duration*(1+(rng()*2-1)*.035*amount.human)));
+  track.push({type:"note",tick:s,duration:d,pitch:clamp(Math.round(pitch),0,127),velocity:clamp(Math.round(velocity),1,127),channel});
+}
 
-        function generateMelody(chords, numBars, genre, melodyLevel) {
-            const melody = [];
-            if (melodyLevel < 5) return melody;
-            
-            const chordData = chords.map(c => parseChord(c));
-            
-            for (let bar = 0; bar < numBars; bar++) {
-                const chordIdx = Math.floor((bar * chords.length) / numBars) % chordData.length;
-                const chord = chordData[chordIdx];
-                
-                let barNotes = [];
-                
-                if (genre === 'ambient') {
-                    const intervalIdx = Math.floor(Math.random() * chord.intervals.length);
-                    const note = 60 + chord.root + chord.intervals[intervalIdx];
-                    barNotes.push({ time: bar * 4, note: note, duration: 3.8, velocity: Math.round(50 + (melodyLevel / 2)) });
-                } else if (genre === 'jazz') {
-                    for (let beat = 0; beat < 4; beat++) {
-                        const intervalIdx = Math.floor(Math.random() * chord.intervals.length);
-                        const note = 64 + chord.root + chord.intervals[intervalIdx];
-                        barNotes.push({
-                            time: bar * 4 + beat,
-                            note: note,
-                            duration: 0.8,
-                            velocity: Math.round(60 + (melodyLevel / 3))
-                        });
-                    }
-                } else if (genre === 'lofi') {
-                    for (let beat = 0; beat < 2; beat++) {
-                        const intervalIdx = Math.floor(Math.random() * chord.intervals.length);
-                        const note = 60 + chord.root + chord.intervals[intervalIdx];
-                        barNotes.push({
-                            time: bar * 4 + beat * 2,
-                            note: note,
-                            duration: 1.5,
-                            velocity: Math.round(50 + (melodyLevel / 2))
-                        });
-                    }
-                } else {
-                    for (let beat = 0; beat < 3; beat++) {
-                        const intervalIdx = Math.floor(Math.random() * chord.intervals.length);
-                        const note = 62 + chord.root + chord.intervals[intervalIdx];
-                        barNotes.push({
-                            time: bar * 4 + beat * 1.3,
-                            note: note,
-                            duration: 1,
-                            velocity: Math.round(55 + (melodyLevel / 2))
-                        });
-                    }
-                }
-                
-                melody.push(...barNotes);
-            }
-            return melody;
-        }
+function voiceChord(ch,previous){
+  const pcs=ch.intervals.slice(0,4).map(i=>(ch.root+i)%12);
+  const candidates=[];
+  for(let inv=0;inv<pcs.length;inv++){
+    let notes=pcs.map((pc,i)=>midiAt(pc,58+i*4));
+    notes.sort((a,b)=>a-b);
+    for(let i=1;i<notes.length;i++)while(notes[i]<=notes[i-1])notes[i]+=12;
+    for(let shift=-12;shift<=12;shift+=12)candidates.push(notes.map(n=>n+shift));
+  }
+  const score=n=>previous? n.reduce((s,x,i)=>s+Math.abs(x-(previous[i]??previous[previous.length-1])),0)
+                          :Math.abs(n.reduce((a,b)=>a+b,0)/n.length-62);
+  return candidates.sort((a,b)=>score(a)-score(b))[0];
+}
 
-        function switchGenre(evt, genre) {
-            currentGenre = genre;
-            document.querySelectorAll('.genre-tab').forEach(tab => tab.classList.remove('active'));
-            evt.target.classList.add('active');
-            document.querySelectorAll('.genre-config').forEach(config => config.classList.remove('active'));
-            document.getElementById(`${genre}-config`).classList.add('active');
-        }
+function makeChordTrack(chords,bars,style,rng,amount){
+  const tr=[]; let prev=null;
+  for(let bar=0;bar<bars;bar++){
+    const ch=chordForBar(chords,bar), notes=voiceChord(ch,prev); prev=notes;
+    let hits;
+    if(style.pad==="comp") hits=[[0,1.4],[1.75,.65],[2.75,1]];
+    else if(style.pad==="stab") hits=[[.5,.35],[1.5,.35],[2.5,.35],[3.5,.35]];
+    else if(style.pad==="ambient") hits=[[0,4.8]];
+    else hits=[[0,3.82]];
+    hits.forEach(([beat,dur],hi)=>notes.forEach((n,i)=>
+      addNote(tr,bar*BAR+beat*PPQ,dur*PPQ,n,vel(style.pad==="ambient"?55:68,rng,amount,hi===0?4:0),2,rng,amount)));
+  } return tr;
+}
+function makeBassTrack(chords,bars,style,rng,amount){
+  const tr=[];
+  for(let bar=0;bar<bars;bar++){
+    const ch=chordForBar(chords,bar), next=chordForBar(chords,bar+1);
+    const root=midiAt(ch.bass,38), fifth=midiAt((ch.root+7)%12,41), octave=root+12;
+    let p;
+    switch(style.bass){
+      case"walk": p=[[0,root],[1,midiAt((ch.root+choose(rng,scaleFor(ch)))%12,40)],[2,fifth],[3,midiAt((next.bass-1+12)%12,40)]],p=p.map(x=>[x[0],x[1],.82]);break;
+      case"dnb": p=[[0,root,.7],[.75,octave,.25],[1.5,root,.48],[2.5,fifth,.45],[3.25,octave,.55]];break;
+      case"octave": p=[[0,root,.72],[1,octave,.72],[2,root,.72],[3,octave,.72]];break;
+      case"pulse": p=Array.from({length:8},(_,i)=>[i*.5,i%4===3?octave:root,.36]);break;
+      case"funk": p=[[0,root,.35],[.75,octave,.25],[1.5,fifth,.3],[2,root,.35],[2.75,midiAt((ch.root+10)%12,40),.25],[3.5,octave,.3]];break;
+      case"soul": p=[[0,root,.8],[1.5,fifth,.45],[2.5,octave,.55],[3.25,fifth,.45]];break;
+      case"ambient": p=[[0,root,3.7]];break;
+      case"pop": p=[[0,root,.8],[1,root,.8],[2,fifth,.8],[3,octave,.8]];break;
+      default:p=[[0,root,1.55],[2,fifth,1.55]];
+    }
+    p.forEach(([beat,n,d])=>addNote(tr,bar*BAR+beat*PPQ,d*PPQ,n,vel(82,rng,amount,beat===0?8:0),1,rng,amount));
+  } return tr;
+}
+const DRUMS={
+ house:{k:[0,1,2,3],s:[1,3],h:[.5,1.5,2.5,3.5]},
+ techno:{k:[0,.5,1,1.5,2,2.5,3,3.5],s:[1,3],h:[.25,.75,1.25,1.75,2.25,2.75,3.25,3.75]},
+ dnb:{k:[0,.75,2.5],s:[1,3],h:[0,.25,.5,.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75]},
+ jazz:{k:[0,2.5],s:[1,3],h:[0,.67,1,1.67,2,2.67,3,3.67]},
+ lofi:{k:[0,2.25],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ funk:{k:[0,.75,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ pop:{k:[0,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ chill:{k:[0,2],s:[1,3],h:[.5,1.5,2.5,3.5]},
+ soul:{k:[0,2.5],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]}
+};
+function makeDrumTrack(bars,style,rng,amount){
+  const tr=[],p=DRUMS[style.drums]; if(!p)return tr;
+  for(let bar=0;bar<bars;bar++){
+    p.k.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.13,36,vel(105,rng,amount,b===0?10:0),9,rng,amount));
+    p.s.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.15,38,vel(98,rng,amount,5),9,rng,amount));
+    p.h.forEach((b,i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.08,i%4===3?46:42,vel(i%2?62:72,rng,amount),9,rng,amount));
+    if(bar%4===3)addNote(tr,bar*BAR+3.75*PPQ,PPQ*.12,49,vel(78,rng,amount),9,rng,amount);
+  } return tr;
+}
+function makeMelodyTrack(chords,bars,style,rng,amount){
+  const tr=[]; let previous=72;
+  const motif=[0,.75,1.5,2.5,3.25];
+  for(let bar=0;bar<bars;bar++){
+    const ch=chordForBar(chords,bar), scale=scaleFor(ch);
+    let beats;
+    if(style.mel==="ambient") beats=bar%2===0?[0]:[2];
+    else if(style.mel==="sparse") beats=[.5,2.5];
+    else if(style.mel==="jazz") beats=[0,.67,1.5,2,2.67,3.5];
+    else if(style.mel==="lofi") beats=[.25,1.5,2.75];
+    else beats=motif;
+    beats.forEach((beat,i)=>{
+      const chordTone=(i===0||i===beats.length-1||rng()<.58);
+      const interval=chordTone?choose(rng,ch.intervals.slice(0,4)):choose(rng,scale);
+      let n=midiAt((ch.root+interval)%12,previous+(rng()-.5)*7);
+      while(n-previous>7)n-=12; while(previous-n>7)n+=12;
+      n=clamp(n,60,84); previous=n;
+      let dur=style.mel==="ambient"?PPQ*2.8:style.mel==="jazz"?PPQ*.5:PPQ*.55;
+      if(i===beats.length-1)dur*=1.35;
+      addNote(tr,bar*BAR+beat*PPQ,dur,n,vel(style.mel==="ambient"?64:82,rng,amount,i===0?7:0),3,rng,amount);
+    });
+  } return tr;
+}
 
-        // Range sliders
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('input[type="range"]').forEach(slider => {
-                slider.addEventListener('input', (e) => {
-                    const valueSpan = document.getElementById(e.target.id + '-val');
-                    if (valueSpan) valueSpan.textContent = e.target.value + '%';
-                });
-            });
-        });
+/* Correct Standard MIDI writer:
+   - events are stored at absolute ticks
+   - note-offs and note-ons are sorted together
+   - deltas are calculated only after sorting
+   This allows overlapping notes and real chords. */
+function vlq(value){
+  value=Math.max(0,Math.round(value)); let bytes=[value&127];
+  while((value>>=7)>0)bytes.unshift((value&127)|128);
+  return bytes;
+}
+function u32(n){return[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255]}
+function strBytes(s){return Array.from(new TextEncoder().encode(s))}
+function meta(tick,type,data){return{tick,order:-10,bytes:[0xFF,type,...vlq(data.length),...data]}}
+function midiTrack(name,program,channel,notes,endTick,tempo=null){
+  let events=[meta(0,0x03,strBytes(name))];
+  if(tempo){
+    const us=Math.round(60000000/tempo);
+    events.push(meta(0,0x51,[(us>>16)&255,(us>>8)&255,us&255]));
+    events.push(meta(0,0x58,[4,2,24,8]));
+  }
+  if(program!==null && channel!==9) events.push({tick:0,order:-5,bytes:[0xC0|channel,program]});
+  for(const n of notes){
+    events.push({tick:n.tick,order:1,bytes:[0x90|n.channel,n.pitch,n.velocity]});
+    events.push({tick:n.tick+n.duration,order:0,bytes:[0x80|n.channel,n.pitch,0]});
+  }
+  events.push(meta(endTick,0x2F,[]));
+  events.sort((a,b)=>a.tick-b.tick||a.order-b.order);
+  let body=[],last=0;
+  for(const e of events){body.push(...vlq(e.tick-last),...e.bytes);last=e.tick}
+  return [0x4D,0x54,0x72,0x6B,...u32(body.length),...body];
+}
+function writeMidi(tempo,bars,tracks){
+  const chunks=[];
+  chunks.push(midiTrack("Conductor",null,0,[],bars*BAR,tempo));
+  for(const t of tracks)chunks.push(midiTrack(t.name,t.program,t.channel,t.notes,bars*BAR));
+  const head=[0x4D,0x54,0x68,0x64,0,0,0,6,0,1,(chunks.length>>8)&255,chunks.length&255,(PPQ>>8)&255,PPQ&255];
+  return new Uint8Array([...head,...chunks.flat()]);
+}
+function download(bytes,name){
+  const blob=new Blob([bytes],{type:"audio/midi"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 
-        // VLQ encoding
-        function encodeVLQ(value) {
-            let result = [];
-            result[0] = value & 0x7f;
-            value >>= 7;
-            while (value > 0) {
-                result.unshift((value & 0x7f) | 0x80);
-                value >>= 7;
-            }
-            return result;
-        }
-
-        function writeMidiFile(tempo, notes) {
-            let data = [];
-            
-            // MIDI file header (MThd)
-            data.push(0x4d, 0x54, 0x68, 0x64); // "MThd"
-            data.push(0x00, 0x00, 0x00, 0x06); // Header length
-            data.push(0x00, 0x00);              // Format 0
-            data.push(0x00, 0x01);              // 1 track
-            data.push(0x00, 0x60);              // 96 PPQ
-            
-            // Build track data
-            let trackData = [];
-            
-            // Set Tempo (FF 51)
-            trackData.push(0x00); // Delta time
-            trackData.push(0xFF, 0x51, 0x03); // Meta: Set Tempo
-            let microsecondsPerBeat = Math.round(60000000 / tempo);
-            trackData.push((microsecondsPerBeat >> 16) & 0xFF);
-            trackData.push((microsecondsPerBeat >> 8) & 0xFF);
-            trackData.push(microsecondsPerBeat & 0xFF);
-            
-            // Sort and write notes
-            let sortedNotes = [...notes].sort((a, b) => a.start - b.start);
-            
-            let lastTime = 0;
-            for (let note of sortedNotes) {
-                // Delta time for note-on
-                let deltaTime = note.start - lastTime;
-                trackData.push(...encodeVLQ(deltaTime));
-                
-                // Note On (90 = channel 1)
-                trackData.push(0x90, note.pitch, note.velocity);
-                
-                // Delta time for note-off
-                trackData.push(...encodeVLQ(note.duration));
-                
-                // Note Off (80 = channel 1)
-                trackData.push(0x80, note.pitch, 0x40);
-                
-                lastTime = note.start + note.duration;
-            }
-            
-            // End of Track (FF 2F)
-            trackData.push(0x00, 0xFF, 0x2F, 0x00);
-            
-            // Track header (MTrk)
-            data.push(0x4d, 0x54, 0x72, 0x6b); // "MTrk"
-            let trackLength = trackData.length;
-            data.push((trackLength >> 24) & 0xFF);
-            data.push((trackLength >> 16) & 0xFF);
-            data.push((trackLength >> 8) & 0xFF);
-            data.push(trackLength & 0xFF);
-            
-            data.push(...trackData);
-            
-            return new Uint8Array(data);
-        }
-
-        function generateMIDI(evt) {
-            const statusDiv = document.getElementById('status');
-            const debugDiv = document.getElementById('debug');
-            const button = evt.target.closest('button');
-            
-            try {
-                statusDiv.className = 'status info';
-                statusDiv.textContent = '⏳ Generating MIDI...';
-                debugDiv.style.display = 'none';
-                button.disabled = true;
-                
-                const chordsStr = document.getElementById('chords').value;
-                const chords = chordsStr.split(',').map(c => c.trim()).filter(c => c);
-                if (chords.length === 0) throw new Error('Please enter at least one chord');
-                
-                let tempo, numBars, bassLevel;
-                
-                if (currentGenre === 'dnb') {
-                    tempo = parseInt(document.getElementById('dnb-tempo').value);
-                    numBars = parseInt(document.getElementById('dnb-bars').value);
-                    bassLevel = parseInt(document.getElementById('dnb-bass').value);
-                } else if (currentGenre === 'house') {
-                    tempo = parseInt(document.getElementById('house-tempo').value);
-                    numBars = parseInt(document.getElementById('house-bars').value);
-                    bassLevel = parseInt(document.getElementById('house-bass').value);
-                } else if (currentGenre === 'techno') {
-                    tempo = parseInt(document.getElementById('techno-tempo').value);
-                    numBars = parseInt(document.getElementById('techno-bars').value);
-                    bassLevel = parseInt(document.getElementById('techno-bass').value);
-                } else if (currentGenre === 'jazz') {
-                    tempo = parseInt(document.getElementById('jazz-tempo').value);
-                    numBars = parseInt(document.getElementById('jazz-bars').value);
-                    bassLevel = parseInt(document.getElementById('jazz-bass').value);
-                } else if (currentGenre === 'lofi') {
-                    tempo = parseInt(document.getElementById('lofi-tempo').value);
-                    numBars = parseInt(document.getElementById('lofi-bars').value);
-                    bassLevel = parseInt(document.getElementById('lofi-bass').value);
-                } else if (currentGenre === 'ambient') {
-                    tempo = parseInt(document.getElementById('ambient-tempo').value);
-                    numBars = parseInt(document.getElementById('ambient-bars').value);
-                    bassLevel = parseInt(document.getElementById('ambient-bass').value);
-                } else if (currentGenre === 'funk') {
-                    tempo = parseInt(document.getElementById('funk-tempo').value);
-                    numBars = parseInt(document.getElementById('funk-bars').value);
-                    bassLevel = parseInt(document.getElementById('funk-bass').value);
-                } else if (currentGenre === 'pop') {
-                    tempo = parseInt(document.getElementById('pop-tempo').value);
-                    numBars = parseInt(document.getElementById('pop-bars').value);
-                    bassLevel = parseInt(document.getElementById('pop-bass').value);
-                } else if (currentGenre === 'chill') {
-                    tempo = parseInt(document.getElementById('chill-tempo').value);
-                    numBars = parseInt(document.getElementById('chill-bars').value);
-                    bassLevel = parseInt(document.getElementById('chill-bass').value);
-                } else if (currentGenre === 'soul') {
-                    tempo = parseInt(document.getElementById('soul-tempo').value);
-                    numBars = parseInt(document.getElementById('soul-bars').value);
-                    bassLevel = parseInt(document.getElementById('soul-bass').value);
-                }
-                
-                const melodyLevel = parseInt(document.getElementById('melody-level').value);
-                const padLevel = parseInt(document.getElementById('pad-level').value);
-                const drumLevel = parseInt(document.getElementById('drum-level').value);
-                
-                const PPQ = 96;
-                const pattern = DRUM_PATTERNS[currentGenre];
-                
-                // Collect all MIDI notes
-                let allNotes = [];
-                
-                // Drums
-                for (let bar = 0; bar < numBars; bar++) {
-                    pattern.kick.forEach(time => {
-                        allNotes.push({
-                            start: Math.round((bar * 4 + time) * PPQ),
-                            duration: Math.round(0.5 * PPQ),
-                            pitch: 36,
-                            velocity: Math.max(1, Math.min(127, Math.round(100 * (drumLevel / 100))))
-                        });
-                    });
-                    
-                    pattern.snare.forEach(time => {
-                        allNotes.push({
-                            start: Math.round((bar * 4 + time) * PPQ),
-                            duration: Math.round(0.5 * PPQ),
-                            pitch: 38,
-                            velocity: Math.max(1, Math.min(127, Math.round(90 * (drumLevel / 100))))
-                        });
-                    });
-                    
-                    pattern.hihat.forEach(time => {
-                        allNotes.push({
-                            start: Math.round((bar * 4 + time) * PPQ),
-                            duration: Math.round(0.25 * PPQ),
-                            pitch: 42,
-                            velocity: Math.max(1, Math.min(127, Math.round(70 * (drumLevel / 100))))
-                        });
-                    });
-                }
-                
-                // Bass
-                const bass = generateBassLine(chords, numBars, bassLevel);
-                bass.forEach(note => {
-                    allNotes.push({
-                        start: Math.round(note.time * PPQ),
-                        duration: Math.max(1, Math.round(note.duration * PPQ)),
-                        pitch: Math.max(0, Math.min(127, note.note)),
-                        velocity: Math.max(1, Math.min(127, Math.round(note.velocity)))
-                    });
-                });
-                
-                // Pad
-                const pad = generatePad(chords, numBars, padLevel);
-                pad.forEach(note => {
-                    allNotes.push({
-                        start: Math.round(note.time * PPQ),
-                        duration: Math.max(1, Math.round(note.duration * PPQ)),
-                        pitch: Math.max(0, Math.min(127, note.note)),
-                        velocity: Math.max(1, Math.min(127, note.velocity))
-                    });
-                });
-                
-                // Melody
-                const melody = generateMelody(chords, numBars, currentGenre, melodyLevel);
-                melody.forEach(note => {
-                    allNotes.push({
-                        start: Math.round(note.time * PPQ),
-                        duration: Math.max(1, Math.round(note.duration * PPQ)),
-                        pitch: Math.max(0, Math.min(127, note.note)),
-                        velocity: Math.max(1, Math.min(127, note.velocity))
-                    });
-                });
-                
-                // Debug info
-                let debugInfo = `Total notes: ${allNotes.length}<br>`;
-                debugInfo += `Tempo: ${tempo} BPM<br>`;
-                debugInfo += `Duration: ${numBars * 4} beats<br>`;
-                debugInfo += `Sample notes:<br>`;
-                allNotes.slice(0, 5).forEach((n, i) => {
-                    debugInfo += `  ${i}: start=${n.start}, dur=${n.duration}, pitch=${n.pitch}, vel=${n.velocity}<br>`;
-                });
-                debugDiv.innerHTML = debugInfo;
-                debugDiv.style.display = 'block';
-                
-                // Generate MIDI
-                const midiData = writeMidiFile(tempo, allNotes);
-                const blob = new Blob([midiData], { type: 'audio/midi' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${currentGenre}-${Date.now()}.mid`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                
-                statusDiv.className = 'status success';
-                statusDiv.textContent = '✅ MIDI file generated and downloaded!';
-                setTimeout(() => { statusDiv.className = 'status'; }, 5000);
-                
-            } catch (error) {
-                console.error('Error:', error);
-                statusDiv.className = 'status error';
-                statusDiv.textContent = '❌ Error: ' + error.message;
-                debugDiv.innerHTML = error.stack;
-                debugDiv.style.display = 'block';
-            } finally {
-                button.disabled = false;
-            }
-        }
-    </script>
+const genre=document.getElementById("genre"),tempo=document.getElementById("tempo");
+genre.addEventListener("change",()=>tempo.value=STYLE[genre.value].tempo);
+for(const id of["swing","humanize","velocity"]){
+  const el=document.getElementById(id),out=document.getElementById(id+"Out");
+  el.addEventListener("input",()=>out.textContent=el.value+"%");
+}
+document.getElementById("generate").addEventListener("click",()=>{
+  const btn=document.getElementById("generate"),status=document.getElementById("status"),summary=document.getElementById("summary");
+  try{
+    btn.disabled=true; status.className="status"; status.textContent="";
+    const chordTexts=document.getElementById("chords").value.split(",").map(x=>x.trim()).filter(Boolean);
+    if(!chordTexts.length)throw new Error("Enter at least one chord.");
+    const chords=chordTexts.map(parseChord);
+    const bars=clamp(parseInt(document.getElementById("bars").value)||16,1,128);
+    const bpm=clamp(parseInt(tempo.value)||120,30,240);
+    const style=STYLE[genre.value],rng=hashSeed(parseInt(document.getElementById("seed").value)||1);
+    const amount={
+      swing:parseInt(document.getElementById("swing").value)/100,
+      human:parseInt(document.getElementById("humanize").value)/100,
+      master:parseInt(document.getElementById("velocity").value)/100
+    };
+    const tracks=[];
+    if(document.getElementById("drums").checked && style.drums!=="none")
+      tracks.push({name:"Drums",program:null,channel:9,notes:makeDrumTrack(bars,style,rng,amount)});
+    if(document.getElementById("bass").checked)
+      tracks.push({name:"Bass",program:style.bassProgram,channel:1,notes:makeBassTrack(chords,bars,style,rng,amount)});
+    if(document.getElementById("chordTrack").checked)
+      tracks.push({name:"Chords",program:style.chordProgram,channel:2,notes:makeChordTrack(chords,bars,style,rng,amount)});
+    if(document.getElementById("melody").checked)
+      tracks.push({name:"Melody",program:style.melProgram,channel:3,notes:makeMelodyTrack(chords,bars,style,rng,amount)});
+    if(!tracks.length)throw new Error("Select at least one track.");
+    const bytes=writeMidi(bpm,bars,tracks);
+    download(bytes,`${slug(genre.options[genre.selectedIndex].text)}-${bpm}bpm.mid`);
+    const total=tracks.reduce((n,t)=>n+t.notes.length,0);
+    status.className="status ok";status.textContent="✓ MIDI generated and downloaded.";
+    summary.innerHTML=`Format 1 · ${PPQ} PPQ · ${bpm} BPM · ${bars} bars · ${tracks.length} musical tracks · ${total} notes<br>`+
+      tracks.map(t=>`${t.name}: ${t.notes.length} notes`).join(" · ");
+  }catch(e){
+    console.error(e);status.className="status err";status.textContent="Error: "+e.message;
+  }finally{btn.disabled=false}
+});
+</script>
 </body>
 </html>
