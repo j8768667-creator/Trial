@@ -54,7 +54,7 @@ button.secondary{background:#fff;color:var(--a);border:2px solid var(--a)}
 <header>
   <h1>🎹 Chord Arranger</h1>
   <p>Generate editable, multi-track Standard MIDI files</p>
-  <small style="color:#fff;opacity:.78;margin-top:8px">Build 2.1 · genre-selection fix</small>
+  <small style="color:#fff;opacity:.78;margin-top:8px">Build 5.0 · distinct engine for every genre</small>
 </header>
 <main>
 <section>
@@ -110,6 +110,7 @@ button.secondary{background:#fff;color:var(--a);border:2px solid var(--a)}
   <h2>4. Export</h2>
   <button id="generate">Generate and download MIDI</button>
   <div id="status" class="status"></div>
+  <div id="filenamePreview" class="summary">Next filename: pop-120bpm.mid</div>
   <div id="summary" class="summary">The export uses MIDI format 1, 480 PPQ and separate editable tracks.</div>
 </section>
 </main>
@@ -260,6 +261,15 @@ PROGRESSION_LIBRARY.push(...EXPANDED_PROGRESSION_LIBRARY);
 function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
 function hashSeed(n){let x=n|0;return()=>{x|=0;x=x+0x6D2B79F5|0;let t=Math.imul(x^x>>>15,1|x);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 function choose(rng,a){return a[Math.floor(rng()*a.length)]}
+function stringHash(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+const ROCK_PROFILES=[
+  {name:"Classic",guitar:0,bass:0,drums:0,lead:0,program:29},
+  {name:"Punk",guitar:1,bass:1,drums:1,lead:1,program:30},
+  {name:"Hard Rock",guitar:2,bass:2,drums:2,lead:2,program:30},
+  {name:"Alternative",guitar:3,bass:3,drums:3,lead:3,program:29},
+  {name:"Stadium",guitar:4,bass:4,drums:4,lead:4,program:30},
+  {name:"Half-time",guitar:5,bass:5,drums:5,lead:5,program:29}
+];
 function noteNameToPc(s){
   const m=/^([A-Ga-g])([#b]?)/.exec(s);
   if(!m) throw new Error("Invalid note: "+s);
@@ -306,11 +316,17 @@ function makeChordTrack(chords,bars,style,rng,amount){
       // Distorted rhythm guitar: low power chords, palm-muted eighths and open accents.
       const root=midiAt(ch.root,43), fifth=midiAt((ch.root+7)%12,root+7);
       const power=[root,fifth,root+12];
-      const pattern=bar%4===3
-        ? [[0,.32,10],[.5,.22,-8],[1,.38,2],[1.5,.22,-8],[2,.32,6],[2.5,.22,-8],[3,.22,2],[3.5,.18,0],[3.75,.18,8]]
-        : (bar%2===0
-          ? [[0,.38,10],[.5,.22,-8],[1,.22,-5],[1.5,.22,-8],[2,.38,7],[2.5,.22,-8],[3,.32,2],[3.5,.22,-6]]
-          : [[0,.35,8],[.75,.2,-5],[1,.35,4],[1.5,.2,-8],[2,.35,8],[2.75,.2,-5],[3,.35,3],[3.5,.2,-7]]);
+      const gv=(style.rockProfile?.guitar??0);
+      const guitarPatterns=[
+        [ [[0,.42,10],[.5,.22,-7],[1,.3,-2],[1.5,.22,-7],[2,.42,7],[2.5,.22,-7],[3,.35,3],[3.5,.22,-5]], [[0,.38,8],[.75,.24,-3],[1.5,.3,3],[2,.38,8],[2.75,.24,-3],[3.5,.3,4]] ],
+        [ [[0,.28,11],[.5,.24,2],[1,.28,7],[1.5,.24,2],[2,.28,11],[2.5,.24,2],[3,.28,7],[3.5,.24,2]], [[0,.24,9],[.5,.24,4],[1,.24,8],[1.5,.24,4],[2,.24,9],[2.5,.24,4],[3,.24,8],[3.5,.24,5]] ],
+        [ [[0,.55,13],[1,.24,-4],[1.5,.24,-6],[2,.55,10],[3,.24,-3],[3.5,.24,-5]], [[0,.42,12],[.5,.18,-7],[1.5,.42,7],[2,.42,11],[2.5,.18,-7],[3.5,.34,5]] ],
+        [ [[0,.8,8],[1.25,.28,-2],[2,.55,7],[3.25,.3,3]], [[0,.32,7],[.75,.32,1],[1.5,.7,8],[2.75,.3,-1],[3.5,.3,4]] ],
+        [ [[0,.9,14],[1.5,.28,-5],[2,.9,11],[3.5,.28,4]], [[0,.55,12],[1,.3,-2],[2,.55,10],[3,.3,2],[3.5,.24,7]] ],
+        [ [[0,.8,12],[2,.75,9],[3.5,.28,3]], [[0,.65,10],[1.5,.3,-3],[2,.65,9],[3.5,.3,4]] ]
+      ];
+      let pattern=guitarPatterns[gv][bar%2];
+      if(bar%4===3) pattern=[...pattern,[3.75,.16,10]];
       pattern.forEach(([beat,dur,accent],hi)=>power.forEach((n,i)=>
         addNote(tr,bar*BAR+beat*PPQ,dur*PPQ,n,vel(82,rng,amount,accent-i*3),2,rng,amount,false)));
       continue;
@@ -336,7 +352,13 @@ function makeChordTrack(chords,bars,style,rng,amount){
     hits.forEach(([beat,dur],hi)=>notes.forEach((n,i)=>addNote(tr,bar*BAR+beat*PPQ,dur*PPQ,n,vel(style.pad==="ambient"?55:68,rng,amount,hi===0?4:0),2,rng,amount)));
   }return tr
 }
-function makeBassTrack(chords,bars,style,rng,amount){const tr=[];for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),next=chordForBar(chords,bar+1);const root=midiAt(ch.bass,38),fifth=midiAt((ch.root+7)%12,41),octave=root+12;let p;switch(style.bass){case"walk":p=[[0,root],[1,midiAt((ch.root+choose(rng,scaleFor(ch)))%12,40)],[2,fifth],[3,midiAt((next.bass-1+12)%12,40)]],p=p.map(x=>[x[0],x[1],.82]);break;case"dnb":p=[[0,root,.7],[.75,octave,.25],[1.5,root,.48],[2.5,fifth,.45],[3.25,octave,.55]];break;case"octave":p=[[0,root,.72],[1,octave,.72],[2,root,.72],[3,octave,.72]];break;case"pulse":p=Array.from({length:8},(_,i)=>[i*.5,i%4===3?octave:root,.36]);break;case"funk":p=[[0,root,.35],[.75,octave,.25],[1.5,fifth,.3],[2,root,.35],[2.75,midiAt((ch.root+10)%12,40),.25],[3.5,octave,.3]];break;case"soul":p=[[0,root,.8],[1.5,fifth,.45],[2.5,octave,.55],[3.25,fifth,.45]];break;case"ambient":p=[[0,root,3.7]];break;case"pop":p=[[0,root,.8],[1,root,.8],[2,fifth,.8],[3,octave,.8]];break;case"rock":p=bar%4===3?[[0,root,.42],[.5,root,.3],[1,fifth,.42],[1.5,root,.3],[2,octave,.42],[2.5,fifth,.3],[3,root,.25],[3.5,midiAt(next.bass,38),.35]]:[[0,root,.42],[.5,root,.3],[1,root,.42],[1.5,fifth,.3],[2,octave,.42],[2.5,root,.3],[3,fifth,.42],[3.5,root,.3]];break;
+function makeBassTrack(chords,bars,style,rng,amount){const tr=[];for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),next=chordForBar(chords,bar+1);const root=midiAt(ch.bass,38),fifth=midiAt((ch.root+7)%12,41),octave=root+12;let p;switch(style.bass){case"walk":p=[[0,root],[1,midiAt((ch.root+choose(rng,scaleFor(ch)))%12,40)],[2,fifth],[3,midiAt((next.bass-1+12)%12,40)]],p=p.map(x=>[x[0],x[1],.82]);break;case"dnb":p=[[0,root,.7],[.75,octave,.25],[1.5,root,.48],[2.5,fifth,.45],[3.25,octave,.55]];break;case"octave":p=[[0,root,.72],[1,octave,.72],[2,root,.72],[3,octave,.72]];break;case"pulse":p=Array.from({length:8},(_,i)=>[i*.5,i%4===3?octave:root,.36]);break;case"funk":p=[[0,root,.35],[.75,octave,.25],[1.5,fifth,.3],[2,root,.35],[2.75,midiAt((ch.root+10)%12,40),.25],[3.5,octave,.3]];break;case"soul":p=[[0,root,.8],[1.5,fifth,.45],[2.5,octave,.55],[3.25,fifth,.45]];break;case"ambient":p=[[0,root,3.7]];break;case"pop":p=[[0,root,.8],[1,root,.8],[2,fifth,.8],[3,octave,.8]];break;case"rock":{const rv=(style.rockProfile?.bass??0);const nextRoot=midiAt(next.bass,38);const sets=[
+[[0,root,.45],[.5,root,.28],[1,fifth,.42],[1.5,root,.28],[2,octave,.45],[2.5,root,.28],[3,fifth,.42],[3.5,nextRoot,.3]],
+[[0,root,.3],[.5,root,.3],[1,root,.3],[1.5,root,.3],[2,octave,.3],[2.5,octave,.3],[3,fifth,.3],[3.5,nextRoot,.3]],
+[[0,root,.6],[1,root,.3],[1.5,fifth,.3],[2,octave,.6],[3,fifth,.3],[3.5,root,.3]],
+[[0,root,.75],[1.25,fifth,.35],[2,octave,.65],[3.25,nextRoot,.4]],
+[[0,root,.7],[1,octave,.48],[2,fifth,.7],[3,octave,.48]],
+[[0,root,1.35],[2,fifth,1.1],[3.5,nextRoot,.35]]];p=sets[rv];if(bar%4===3)p=[...p.slice(0,-1),[3,root,.24],[3.5,nextRoot,.32]];break;}
 case"edm":p=[[0,root,.38],[.5,root,.3],[1,octave,.38],[1.5,root,.3],[2,root,.38],[2.5,fifth,.3],[3,octave,.38],[3.5,fifth,.3]];break;
 case"lofi":p=[[0,root,.8],[1.5,fifth,.42],[2.5,octave,.62],[3.5,fifth,.3]];break;
 case"indie":p=[[0,root,.72],[1,fifth,.5],[2,octave,.72],[3,midiAt(next.bass,39),.55]];break;
@@ -372,18 +394,39 @@ const DRUMS={
  cinematic:{k:[0,2.5],s:[1,3],h:[0,1,2,3]}
 };
 function makeDrumTrack(bars,style,rng,amount){
-  const tr=[],p=DRUMS[style.drums];if(!p)return tr;
+  const tr=[];
+  if(style.drums==="rock"){
+    const rv=style.rockProfile?.drums??0;
+    const patterns=[
+      {k:[0,.75,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+      {k:[0,.5,1.5,2,2.5,3.5],s:[1,3],h:[0,.25,.5,.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75]},
+      {k:[0,.75,1.5,2,2.75,3.5],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+      {k:[0,1.5,2.5,3.25],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+      {k:[0,.5,2,2.5,3.5],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+      {k:[0,2.5],s:[2],h:[0,.5,1,1.5,2,2.5,3,3.5]}
+    ];
+    const p=patterns[rv];
+    for(let bar=0;bar<bars;bar++){
+      if(bar%4===0)addNote(tr,bar*BAR,PPQ*.28,49,vel(114,rng,amount,8),9,rng,amount,false);
+      p.k.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.13,36,vel(110,rng,amount,b===0?12:0),9,rng,amount,false));
+      p.s.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.15,38,vel(108,rng,amount,7),9,rng,amount,false));
+      p.h.forEach((b,i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.08,(rv===4&&i%4===3)?51:(bar%4===3&&b>=3?46:42),vel(i%2?66:80,rng,amount),9,rng,amount,false));
+      if(bar%4===3){
+        const fills=rv===1?[[3,45],[3.25,47],[3.5,48],[3.75,50]]:rv===5?[[3.5,45],[3.75,47]]:[[3.25,45],[3.5,47],[3.75,50]];
+        fills.forEach(([b,n],i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.14,n,vel(88+i*8,rng,amount),9,rng,amount,false));
+      }
+    }
+    return tr;
+  }
+  const p=DRUMS[style.drums];if(!p)return tr;
   for(let bar=0;bar<bars;bar++){
-    if(style.drums==="rock" && bar%4===0)addNote(tr,bar*BAR,PPQ*.28,49,vel(112,rng,amount,8),9,rng,amount,false);
-    p.k.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.13,36,vel(style.drums==="rock"?112:105,rng,amount,b===0?10:0),9,rng,amount));
-    p.s.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.15,38,vel(style.drums==="rock"?108:98,rng,amount,5),9,rng,amount));
-    p.h.forEach((b,i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.08,(style.drums==="rock"&&bar%4===3&&b>=3)?46:(i%4===3?46:42),vel(i%2?66:78,rng,amount),9,rng,amount));
-    if(style.drums==="rock" && bar%4===3){
-      [[3,45],[3.25,47],[3.5,48],[3.75,50]].forEach(([b,n],i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.14,n,vel(88+i*7,rng,amount),9,rng,amount,false));
-    }else if(bar%4===3)addNote(tr,bar*BAR+3.75*PPQ,PPQ*.12,49,vel(78,rng,amount),9,rng,amount);
+    p.k.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.13,36,vel(105,rng,amount,b===0?10:0),9,rng,amount));
+    p.s.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.15,38,vel(98,rng,amount,5),9,rng,amount));
+    p.h.forEach((b,i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.08,i%4===3?46:42,vel(i%2?62:72,rng,amount),9,rng,amount));
+    if(bar%4===3)addNote(tr,bar*BAR+3.75*PPQ,PPQ*.12,49,vel(78,rng,amount),9,rng,amount);
   }return tr
 }
-function makeMelodyTrack(chords,bars,style,rng,amount){const tr=[];let previous=72;const motif=[0,.75,1.5,2.5,3.25];for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),scale=scaleFor(ch);let beats;if(style.mel==="ambient")beats=bar%2===0?[0]:[2];else if(style.mel==="sparse")beats=[.5,2.5];else if(style.mel==="jazz")beats=[0,.67,1.5,2,2.67,3.5];else if(style.mel==="lofi")beats=[.25,1.5,2.75];else if(style.mel==="rock")beats=bar%4===3?[0,.5,1.5,2,2.5,3,3.5]:[0,1,1.5,2.5,3];else if(style.mel==="edm")beats=[.5,1.5,2.5,3.5];else if(style.mel==="indie")beats=bar%2?[.5,1.5,3]:[0,1.25,2.5,3.25];else if(style.mel==="folk"||style.mel==="acoustic")beats=[0,1,2,3];else if(style.mel==="country")beats=[0,.75,1.5,2.5,3.25];else if(style.mel==="ballad")beats=[0,2,3.25];else if(style.mel==="rnb")beats=[.25,1.25,2.75,3.5];else if(style.mel==="gospel")beats=[0,.75,1.5,2.5,3.25];else if(style.mel==="blues")beats=[0,.67,1.5,2.5,3.33];else if(style.mel==="cinematic")beats=bar%2===0?[0,2.5]:[1,3];else if(style.mel==="alternative")beats=[0,.75,1.5,2.75,3.5];else beats=motif;beats.forEach((beat,i)=>{const chordTone=(i===0||i===beats.length-1||rng()<(style.mel==="rock"?.72:.58));const rockPool=[0,3,5,7,10,12], bluesPool=[0,3,5,6,7,10,12], countryPool=[0,2,4,7,9,12];let interval;if(style.mel==="rock"||style.mel==="alternative")interval=choose(rng,rockPool);else if(style.mel==="blues")interval=choose(rng,bluesPool);else if(style.mel==="country"||style.mel==="folk"||style.mel==="acoustic")interval=choose(rng,countryPool);else interval=chordTone?choose(rng,ch.intervals.slice(0,4)):choose(rng,scale);let n=midiAt((ch.root+interval)%12,previous+(rng()-.5)*7);while(n-previous>7)n-=12;while(previous-n>7)n+=12;n=clamp(n,60,84);previous=n;let dur=style.mel==="ambient"?PPQ*2.8:style.mel==="jazz"?PPQ*.5:(style.mel==="rock"||style.mel==="alternative")?PPQ*.38:style.mel==="cinematic"?PPQ*1.4:style.mel==="ballad"?PPQ*.9:PPQ*.55;if(i===beats.length-1)dur*=1.35;addNote(tr,bar*BAR+beat*PPQ,dur,n,vel(style.mel==="ambient"?64:82,rng,amount,i===0?7:0),3,rng,amount)})}return tr}
+function makeMelodyTrack(chords,bars,style,rng,amount){const tr=[];let previous=72;const motif=[0,.75,1.5,2.5,3.25];for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),scale=scaleFor(ch);let beats;if(style.mel==="ambient")beats=bar%2===0?[0]:[2];else if(style.mel==="sparse")beats=[.5,2.5];else if(style.mel==="jazz")beats=[0,.67,1.5,2,2.67,3.5];else if(style.mel==="lofi")beats=[.25,1.5,2.75];else if(style.mel==="rock"){const lv=style.rockProfile?.lead??0;const sets=[[[0,1,1.5,2.5,3],[0,.75,1.5,2.5,3.25]],[[0,.5,1,1.5,2,2.5,3,3.5],[.25,.75,1.25,1.75,2.25,2.75,3.25,3.75]],[[0,.75,1.5,2,2.75,3.5],[0,1,1.5,2.5,3]],[[0,1.25,2,3.25],[.5,1.5,2.75,3.5]],[[0,.75,1.5,2.5,3.25],[0,1,2,2.75,3.5]],[[0,2,3.5],[1,2.5,3.5]]];beats=sets[lv][bar%2];}else if(style.mel==="edm")beats=[.5,1.5,2.5,3.5];else if(style.mel==="indie")beats=bar%2?[.5,1.5,3]:[0,1.25,2.5,3.25];else if(style.mel==="folk"||style.mel==="acoustic")beats=[0,1,2,3];else if(style.mel==="country")beats=[0,.75,1.5,2.5,3.25];else if(style.mel==="ballad")beats=[0,2,3.25];else if(style.mel==="rnb")beats=[.25,1.25,2.75,3.5];else if(style.mel==="gospel")beats=[0,.75,1.5,2.5,3.25];else if(style.mel==="blues")beats=[0,.67,1.5,2.5,3.33];else if(style.mel==="cinematic")beats=bar%2===0?[0,2.5]:[1,3];else if(style.mel==="alternative")beats=[0,.75,1.5,2.75,3.5];else beats=motif;beats.forEach((beat,i)=>{const chordTone=(i===0||i===beats.length-1||rng()<(style.mel==="rock"?.72:.58));const rockPool=[0,3,5,7,10,12], bluesPool=[0,3,5,6,7,10,12], countryPool=[0,2,4,7,9,12];let interval;if(style.mel==="rock"||style.mel==="alternative")interval=choose(rng,rockPool);else if(style.mel==="blues")interval=choose(rng,bluesPool);else if(style.mel==="country"||style.mel==="folk"||style.mel==="acoustic")interval=choose(rng,countryPool);else interval=chordTone?choose(rng,ch.intervals.slice(0,4)):choose(rng,scale);let n=midiAt((ch.root+interval)%12,previous+(rng()-.5)*7);while(n-previous>7)n-=12;while(previous-n>7)n+=12;n=clamp(n,60,84);previous=n;let dur=style.mel==="ambient"?PPQ*2.8:style.mel==="jazz"?PPQ*.5:(style.mel==="rock"||style.mel==="alternative")?PPQ*.38:style.mel==="cinematic"?PPQ*1.4:style.mel==="ballad"?PPQ*.9:PPQ*.55;if(i===beats.length-1)dur*=1.35;addNote(tr,bar*BAR+beat*PPQ,dur,n,vel(style.mel==="ambient"?64:82,rng,amount,i===0?7:0),3,rng,amount)})}return tr}
 function vlq(value){value=Math.max(0,Math.round(value));let bytes=[value&127];while((value>>=7)>0)bytes.unshift((value&127)|128);return bytes}
 function u32(n){return[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255]}
 function strBytes(s){return Array.from(new TextEncoder().encode(s))}
@@ -459,8 +502,20 @@ function updateProgressions(preferredId=null){
   updateLibraryMeta();
 }
 
-[libGenre,libSection,libMood,libComplexity].forEach(el=>el.addEventListener("change",()=>updateProgressions()));
-progressionPick.addEventListener("change",updateLibraryMeta);
+function visibleGenreName(){
+  const opt=libGenre.options[libGenre.selectedIndex];
+  return (opt ? opt.textContent : libGenre.value || "Pop").trim();
+}
+function updateFilenamePreview(){
+  const genreName=visibleGenreName();
+  const bpm=clamp(parseInt(document.getElementById("tempo").value)||120,30,240);
+  const p=currentProgression();
+  const id=p&&p.genre===genreName?p.id:"custom";
+  document.getElementById("filenamePreview").textContent=`Next filename: ${slug(genreName)}-${slug(id)}-${bpm}bpm.mid`;
+}
+libGenre.addEventListener("change",()=>{updateProgressions(); document.getElementById("loadProgression").click(); updateFilenamePreview();});
+[libSection,libMood,libComplexity].forEach(el=>el.addEventListener("change",()=>{updateProgressions();updateFilenamePreview();}));
+progressionPick.addEventListener("change",()=>{updateLibraryMeta();updateFilenamePreview();});
 document.getElementById("randomProgression").addEventListener("click",()=>{
   const list=rankedProgressions();
   const bestScore=preferenceScore(list[0]).matched;
@@ -479,17 +534,78 @@ document.getElementById("loadProgression").addEventListener("click",()=>{
   libraryMeta.textContent=`Loaded ${p.id} in ${libKey.value}: ${document.getElementById("chords").value}`;
 });
 updateProgressions();
+updateFilenamePreview();
 
 const tempo=document.getElementById("tempo");
+tempo.addEventListener("input",updateFilenamePreview);
 for(const id of["swing","humanize","velocity"]){const el=document.getElementById(id),out=document.getElementById(id+"Out");el.addEventListener("input",()=>out.textContent=el.value+"%")}
+
+/* Build 5: explicit genre recipes. Each genre owns its rhythmic grid,
+   articulation and instrumentation instead of falling through shared templates. */
+const GENRE_V5={
+ pop:{ch:[0,1,2,3],cd:.78,b:[[0,"r"],[1,"r"],[2,"5"],[3,"8"]],k:[0,2,2.75],sn:[1,3],hh:[0,.5,1,1.5,2,2.5,3,3.5],lead:[0,.75,1.5,2.5,3.25],cp:48,bp:33,lp:81},
+ rock:{ch:[0,.5,1,1.5,2,2.5,3,3.5],cd:.34,b:[[0,"r"],[.5,"r"],[1,"5"],[1.5,"r"],[2,"8"],[2.5,"5"],[3,"r"],[3.5,"8"]],k:[0,.75,2,2.75],sn:[1,3],hh:[0,.5,1,1.5,2,2.5,3,3.5],lead:[0,1,1.5,2.5,3],cp:30,bp:34,lp:29,power:true},
+ alternative:{ch:[0,.75,1.5,2.75,3.5],cd:.48,b:[[0,"r"],[1.5,"5"],[2,"8"],[3.25,"r"]],k:[0,1.5,2.75],sn:[1,3],hh:[0,.5,1.5,2,3,3.5],lead:[0,.75,1.5,2.75,3.5],cp:29,bp:34,lp:30,power:true},
+ indie:{ch:[0,.75,1.5,2.5,3.25],cd:.5,b:[[0,"r"],[1,"5"],[2.5,"8"],[3.25,"5"]],k:[0,2.5],sn:[1,3],hh:[.5,1.5,2.5,3.5],lead:[.5,1.5,3],cp:27,bp:33,lp:26},
+ folk:{ch:[0,.5,1,1.5,2,2.5,3,3.5],cd:.26,b:[[0,"r"],[2,"5"]],k:[0,2],sn:[1,3],hh:[1,3],lead:[0,1,2,3],cp:25,bp:32,lp:73},
+ acoustic:{ch:[0,.5,1,1.5,2,2.5,3,3.5],cd:.22,b:[[0,"r"],[2,"5"]],k:[0,2],sn:[1,3],hh:[],lead:[0,1.5,2.5,3.5],cp:24,bp:32,lp:73},
+ country:{ch:[0,.5,1,1.5,2,2.5,3,3.5],cd:.28,b:[[0,"r"],[1,"5"],[2,"r"],[3,"5"]],k:[0,2.5],sn:[1,3],hh:[0,.5,1,1.5,2,2.5,3,3.5],lead:[0,.75,1.5,2.5,3.25],cp:25,bp:32,lp:26},
+ edm:{ch:[.5,1.5,2.5,3.5],cd:.38,b:[[0,"r"],[.5,"8"],[1,"r"],[1.5,"8"],[2,"r"],[2.5,"8"],[3,"r"],[3.5,"8"]],k:[0,1,2,3],sn:[1,3],hh:[.5,1.5,2.5,3.5],lead:[.5,1.5,2.5,3.5],cp:81,bp:38,lp:81},
+ house:{ch:[.5,1.5,2.5,3.5],cd:.3,b:[[0,"r"],[1,"8"],[2,"r"],[3,"8"]],k:[0,1,2,3],sn:[1,3],hh:[.5,1.5,2.5,3.5],lead:[.75,1.75,2.75,3.75],cp:90,bp:39,lp:81},
+ techno:{ch:[0,1,2,3],cd:.18,b:[[0,"r"],[.5,"r"],[1,"r"],[1.5,"8"],[2,"r"],[2.5,"r"],[3,"r"],[3.5,"8"]],k:[0,.5,1,1.5,2,2.5,3,3.5],sn:[1,3],hh:[.25,.75,1.25,1.75,2.25,2.75,3.25,3.75],lead:[.5,2.5],cp:91,bp:38,lp:82},
+ dnb:{ch:[.5,1.5,2.5,3.5],cd:.25,b:[[0,"r"],[.75,"8"],[1.5,"r"],[2.5,"5"],[3.25,"8"]],k:[0,.75,2.5],sn:[1,3],hh:[0,.25,.5,.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75],lead:[0,.75,1.5,2.5,3.25],cp:89,bp:38,lp:81},
+ jazz:{ch:[0,1.75,2.75],cd:[1.3,.55,.9],b:[[0,"r"],[1,"3"],[2,"5"],[3,"p"]],k:[0,2.5],sn:[1,3],hh:[0,.67,1,1.67,2,2.67,3,3.67],lead:[0,.67,1.5,2,2.67,3.5],cp:0,bp:32,lp:65},
+ blues:{ch:[0,1.5,2.5,3.5],cd:.45,b:[[0,"r"],[.67,"3"],[1.33,"5"],[2,"6"],[2.67,"b7"],[3.33,"5"]],k:[0,2.5],sn:[1,3],hh:[0,.67,1.33,2,2.67,3.33],lead:[0,.67,1.5,2.5,3.33],cp:27,bp:33,lp:26},
+ lofi:{ch:[0,2.25],cd:[1.7,1.25],b:[[0,"r"],[2.25,"5"]],k:[0,2.25],sn:[1,3],hh:[0,.5,1,1.5,2,2.5,3,3.5],lead:[.25,1.5,2.75],cp:4,bp:33,lp:11},
+ ambient:{ch:[0],cd:4.7,b:[[0,"r"]],k:[],sn:[],hh:[],lead:[0],cp:89,bp:38,lp:94},
+ cinematic:{ch:[0,2.5],cd:[2.2,1.35],b:[[0,"r"],[2,"5"]],k:[0,2.5],sn:[3],hh:[],lead:[0,2.5],cp:48,bp:43,lp:40},
+ funk:{ch:[0,.75,1.5,2,2.75,3.5],cd:.18,b:[[0,"r"],[.75,"8"],[1.5,"5"],[2,"r"],[2.75,"b7"],[3.5,"8"]],k:[0,.75,2,2.75],sn:[1,3],hh:[0,.5,1,1.5,2,2.5,3,3.5],lead:[.25,1.25,2.25,3.25],cp:4,bp:36,lp:62},
+ soul:{ch:[0,1.5,2.5,3.25],cd:[.9,.4,.55,.5],b:[[0,"r"],[1.5,"5"],[2.5,"8"],[3.25,"5"]],k:[0,2.5],sn:[1,3],hh:[0,.5,1,1.5,2,2.5,3,3.5],lead:[0,.75,1.5,2.5,3.25],cp:4,bp:33,lp:65},
+ rnb:{ch:[.25,1.25,2.75,3.5],cd:[.5,.55,.45,.35],b:[[0,"r"],[1.75,"5"],[2.75,"8"]],k:[0,1.75,2.75],sn:[1,3],hh:[.25,.75,1.25,1.75,2.25,2.75,3.25,3.75],lead:[.25,1.25,2.75,3.5],cp:5,bp:38,lp:54},
+ gospel:{ch:[0,.75,1.5,2.5,3.25],cd:.58,b:[[0,"r"],[1,"3"],[2,"5"],[3,"8"]],k:[0,2.5],sn:[1,3],hh:[0,.5,1,1.5,2,2.5,3,3.5],lead:[0,.75,1.5,2.5,3.25],cp:16,bp:33,lp:52},
+ ballad:{ch:[0,2],cd:[1.75,1.65],b:[[0,"r"],[2,"5"]],k:[0,2],sn:[1,3],hh:[.5,1.5,2.5,3.5],lead:[0,2,3.25],cp:0,bp:33,lp:40},
+ chill:{ch:[0,2],cd:[1.8,1.5],b:[[0,"r"],[2,"5"]],k:[0,2],sn:[1,3],hh:[.5,1.5,2.5,3.5],lead:[.5,2.5],cp:89,bp:38,lp:85}
+};
+function recipePitch(ch,token,next){
+  const map={r:0,"3":ch.minor?3:4,"5":7,"6":9,"b7":10,"8":12};
+  if(token==="p") return midiAt((next.bass+11)%12,40);
+  return midiAt((ch.root+(map[token]??0))%12, token==="8"?48:38)+(token==="8"?0:0);
+}
+function makeV5ChordTrack(chords,bars,recipe,rng,amount){
+  const tr=[];let prev=null;
+  for(let bar=0;bar<bars;bar++){
+    const ch=chordForBar(chords,bar);
+    let notes=recipe.power?[midiAt(ch.root,52),midiAt((ch.root+7)%12,59),midiAt(ch.root,64)]:voiceChord(ch,prev);
+    prev=notes;
+    recipe.ch.forEach((beat,i)=>{
+      const dur=Array.isArray(recipe.cd)?recipe.cd[i%recipe.cd.length]:recipe.cd;
+      notes.forEach((n,j)=>addNote(tr,bar*BAR+beat*PPQ,dur*PPQ,n,vel(recipe.power?88:68,rng,amount,i===0?7:0),2,rng,amount,recipe!==GENRE_V5.rock));
+    });
+  }return tr;
+}
+function makeV5BassTrack(chords,bars,recipe,rng,amount){
+ const tr=[];for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),next=chordForBar(chords,bar+1);
+ recipe.b.forEach(([beat,tok],i)=>addNote(tr,bar*BAR+beat*PPQ,PPQ*(recipe.b.length>6?.34:.68),recipePitch(ch,tok,next),vel(82,rng,amount,i===0?8:0),1,rng,amount));}return tr;
+}
+function makeV5Drums(bars,recipe,rng,amount){
+ const tr=[];for(let bar=0;bar<bars;bar++){
+ recipe.k.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.12,36,vel(108,rng,amount,b===0?8:0),9,rng,amount,false));
+ recipe.sn.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.14,38,vel(102,rng,amount,5),9,rng,amount,false));
+ recipe.hh.forEach((b,i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.07,i%8===7?46:42,vel(i%2?62:74,rng,amount),9,rng,amount));
+ if(bar%4===3&&recipe.k.length){[3.25,3.5,3.75].forEach((b,i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.12,45+i*2,vel(82+i*7,rng,amount),9,rng,amount,false));}
+ }return tr;
+}
+function makeV5Lead(chords,bars,recipe,rng,amount,styleKey){
+ const tr=[];let previous=72;for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar);const pool=(styleKey==="rock"||styleKey==="alternative")?[0,3,5,7,10,12]:styleKey==="blues"?[0,3,5,6,7,10,12]:scaleFor(ch);
+ recipe.lead.forEach((beat,i)=>{let interval=choose(rng,pool),n=midiAt((ch.root+interval)%12,previous+(rng()-.5)*8);while(n-previous>8)n-=12;while(previous-n>8)n+=12;n=clamp(n,60,86);previous=n;addNote(tr,bar*BAR+beat*PPQ,PPQ*(styleKey==="ambient"?2.8:styleKey==="ballad"?.9:.48),n,vel(78,rng,amount,i===0?6:0),3,rng,amount);});}return tr;
+}
+
 const GENRE_STYLE_MAP={Pop:"pop",Rock:"rock",Indie:"indie",Folk:"folk",Country:"country",EDM:"edm",House:"house",Soul:"soul","R&B":"rnb","Jazz Pop":"jazz","Lo-Fi":"lofi",Ambient:"ambient",Cinematic:"cinematic",Funk:"funk",Gospel:"gospel",Blues:"blues",Ballad:"ballad",Alternative:"alternative",Britpop:"rock",Acoustic:"acoustic"};
 function selectedGenreAndStyle(){
-  // The visible genre dropdown is authoritative. The selected progression
-  // only supplies chords and metadata; it can never silently force Pop.
-  let genreName=libGenre.value;
-  if(!genreName || genreName==="Any"){
-    genreName=currentProgression()?.genre || "Pop";
-  }
+  // Read the label currently visible in the genre dropdown at the instant
+  // Generate is pressed. No stored or hidden progression value is used.
+  let genreName=visibleGenreName();
+  if(!genreName || genreName==="Any") genreName="Pop";
   const styleKey=GENRE_STYLE_MAP[genreName];
   if(!styleKey) throw new Error(`No arrangement engine exists for ${genreName}.`);
   return {genreName,styleKey};
@@ -506,22 +622,34 @@ document.getElementById("generate").addEventListener("click",()=>{
     const bpm=clamp(parseInt(tempo.value)||120,30,240);
     const {genreName,styleKey}=selectedGenreAndStyle();
     activeStyle=styleKey;
-    const style=STYLE[styleKey];
-    if(!style)throw new Error(`No arrangement engine exists for ${genreName}.`);
-    const rng=hashSeed(parseInt(document.getElementById("seed").value)||1);
+    const baseStyle=STYLE[styleKey];
+    const recipe=GENRE_V5[styleKey]||GENRE_V5.pop;
+    if(!baseStyle)throw new Error(`No arrangement engine exists for ${genreName}.`);
+    const userSeed=parseInt(document.getElementById("seed").value)||1;
+    const arrangementHash=(stringHash(chordTexts.join("|")+"|"+genreName)+userSeed)>>>0;
+    const style={...baseStyle};
+    if(styleKey==="rock"){
+      style.rockProfile=ROCK_PROFILES[arrangementHash%ROCK_PROFILES.length];
+      style.chordProgram=style.rockProfile.program;
+    }
+    const rng=hashSeed(arrangementHash);
     const amount={swing:parseInt(document.getElementById("swing").value)/100,human:parseInt(document.getElementById("humanize").value)/100,master:parseInt(document.getElementById("velocity").value)/100};
     const tracks=[];
-    if(document.getElementById("drums").checked&&style.drums!=="none")tracks.push({name:"Drums",program:null,channel:9,notes:makeDrumTrack(bars,style,rng,amount)});
-    if(document.getElementById("bass").checked)tracks.push({name:"Bass",program:style.bassProgram,channel:1,notes:makeBassTrack(chords,bars,style,rng,amount)});
-    if(document.getElementById("chordTrack").checked)tracks.push({name:"Chords",program:style.chordProgram,channel:2,notes:makeChordTrack(chords,bars,style,rng,amount)});
-    if(document.getElementById("melody").checked)tracks.push({name:"Melody",program:style.melProgram,channel:3,notes:makeMelodyTrack(chords,bars,style,rng,amount)});
+    if(document.getElementById("drums").checked&&style.drums!=="none")tracks.push({name:`${genreName} Drums`,program:null,channel:9,notes:makeV5Drums(bars,recipe,rng,amount)});
+    if(document.getElementById("bass").checked)tracks.push({name:`${genreName} Bass`,program:recipe.bp,channel:1,notes:makeV5BassTrack(chords,bars,recipe,rng,amount)});
+    if(document.getElementById("chordTrack").checked)tracks.push({name:`${genreName} Harmony`,program:recipe.cp,channel:2,notes:makeV5ChordTrack(chords,bars,recipe,rng,amount)});
+    if(document.getElementById("melody").checked)tracks.push({name:`${genreName} Lead`,program:recipe.lp,channel:3,notes:makeV5Lead(chords,bars,recipe,rng,amount,styleKey)});
     if(!tracks.length)throw new Error("Select at least one track.");
     const bytes=writeMidi(bpm,bars,tracks);
-    const progressionId=currentProgression()?.id || "custom";
-    download(bytes,`${slug(genreName)}-${slug(progressionId)}-${bpm}bpm.mid`);
+    const selected=currentProgression();
+    const progressionId=selected&&selected.genre===genreName?selected.id:"custom";
+    const profilePart=style.rockProfile?`-${slug(style.rockProfile.name)}`:``;
+    const filename=`${slug(genreName)}-${slug(progressionId)}${profilePart}-${bpm}bpm.mid`;
+    download(bytes,filename);
+    document.getElementById("filenamePreview").textContent=`Downloaded: ${filename}`;
     const total=tracks.reduce((n,t)=>n+t.notes.length,0);
-    status.className="status ok";status.textContent=`✓ ${genreName} MIDI generated with the ${styleKey} engine.`;
-    summary.innerHTML=`${genreName} engine (${styleKey}) · Format 1 · ${PPQ} PPQ · ${bpm} BPM · ${bars} bars · ${tracks.length} musical tracks · ${total} notes<br>`+tracks.map(t=>`${t.name}: ${t.notes.length} notes`).join(" · ");
+    status.className="status ok";status.textContent=`✓ ${genreName} MIDI generated${style.rockProfile?` · ${style.rockProfile.name} arrangement`:``}.`;
+    summary.innerHTML=`${genreName} engine (${styleKey})${style.rockProfile?` · ${style.rockProfile.name}`:``} · Format 1 · ${PPQ} PPQ · ${bpm} BPM · ${bars} bars · ${tracks.length} musical tracks · ${total} notes<br>`+tracks.map(t=>`${t.name}: ${t.notes.length} notes`).join(" · ");
   }catch(e){console.error(e);status.className="status err";status.textContent="Error: "+e.message}
   finally{btn.disabled=false}
 });
