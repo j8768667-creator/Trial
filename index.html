@@ -748,7 +748,12 @@
             });
         });
 
-        // Helper function to encode variable-length quantity
+        // Helper to write bytes
+        function writeBytes(arr, ...bytes) {
+            arr.push(...bytes);
+        }
+
+        // Helper to encode variable-length quantity
         function encodeVLQ(value) {
             let result = [];
             result[0] = value & 0x7f;
@@ -760,64 +765,66 @@
             return result;
         }
 
-        function writeMidiFile(tracks) {
+        function writeMidiFile(tempo, notes) {
             let data = [];
             
-            // MIDI Header
-            data.push(...[0x4d, 0x54, 0x68, 0x64]); // "MThd"
-            data.push(...[0x00, 0x00, 0x00, 0x06]); // Header length
-            data.push(...[0x00, 0x00]); // Format type 0
-            data.push(...[0x00, 0x01]); // Number of tracks
-            data.push(...[0x00, 0x60]); // Ticks per quarter note (96)
+            // MIDI Header - Format 0
+            writeBytes(data, 0x4D, 0x54, 0x68, 0x64); // "MThd"
+            writeBytes(data, 0x00, 0x00, 0x00, 0x06); // Header length = 6
+            writeBytes(data, 0x00, 0x00); // Format 0
+            writeBytes(data, 0x00, 0x01); // 1 track
+            writeBytes(data, 0x00, 0x60); // Division = 96 (PPQ)
             
-            // Combine all tracks into one
-            let allNotes = [];
-            let tempo = 120;
-            
-            for (let track of tracks) {
-                if (track.tempo) tempo = track.tempo;
-                allNotes.push(...track.notes);
-            }
-            
-            // Sort notes by time
-            allNotes.sort((a, b) => a.time - b.time);
-            
-            // Build track data
+            // Build track
             let trackData = [];
             
-            // Set tempo
-            trackData.push(0x00, 0xff, 0x51, 0x03);
+            // Set tempo (microseconds per quarter note)
+            trackData.push(0x00, 0xFF, 0x51, 0x03);
             let microsecondsPerBeat = Math.round(60000000 / tempo);
-            trackData.push((microsecondsPerBeat >> 16) & 0xff);
-            trackData.push((microsecondsPerBeat >> 8) & 0xff);
-            trackData.push(microsecondsPerBeat & 0xff);
+            trackData.push((microsecondsPerBeat >> 16) & 0xFF);
+            trackData.push((microsecondsPerBeat >> 8) & 0xFF);
+            trackData.push(microsecondsPerBeat & 0xFF);
             
-            // Add notes
-            let lastTime = 0;
-            for (let note of allNotes) {
-                let deltaTime = note.time - lastTime;
+            // Sort notes by start time
+            let sortedNotes = [...notes].sort((a, b) => a.start - b.start);
+            
+            let currentTime = 0;
+            for (let note of sortedNotes) {
+                // Delta time to note on
+                let deltaTime = note.start - currentTime;
                 trackData.push(...encodeVLQ(deltaTime));
                 
-                // Note on
-                trackData.push(0x90, note.note, Math.min(127, Math.max(0, note.velocity)));
+                // Note on (0x90 = channel 0, note on)
+                trackData.push(0x90);
+                trackData.push(note.pitch & 0x7F); // Note number
+                trackData.push(note.velocity & 0x7F); // Velocity
                 
-                lastTime = note.time;
+                currentTime = note.start;
                 
-                // Note off (delta time for note duration)
-                let noteDuration = note.duration;
-                trackData.push(...encodeVLQ(noteDuration));
-                trackData.push(0x80, note.note, 0x40);
+                // Delta time to note off
+                deltaTime = note.duration;
+                trackData.push(...encodeVLQ(deltaTime));
                 
-                lastTime += noteDuration;
+                // Note off (0x80 = channel 0, note off)
+                trackData.push(0x80);
+                trackData.push(note.pitch & 0x7F); // Note number
+                trackData.push(0x40); // Velocity
+                
+                currentTime += note.duration;
             }
             
             // End of track
-            trackData.push(0x00, 0xff, 0x2f, 0x00);
+            trackData.push(0x00, 0xFF, 0x2F, 0x00);
             
             // Track header
-            data.push(...[0x4d, 0x54, 0x72, 0x6b]); // "MTrk"
-            let len = trackData.length;
-            data.push((len >> 24) & 0xff, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff);
+            writeBytes(data, 0x4D, 0x54, 0x72, 0x6B); // "MTrk"
+            let trackLength = trackData.length;
+            data.push((trackLength >> 24) & 0xFF);
+            data.push((trackLength >> 16) & 0xFF);
+            data.push((trackLength >> 8) & 0xFF);
+            data.push(trackLength & 0xFF);
+            
+            // Add track data
             data.push(...trackData);
             
             return new Uint8Array(data);
@@ -887,61 +894,74 @@
                 const PPQ = 96;
                 const pattern = DRUM_PATTERNS[currentGenre];
                 
-                // Build all tracks
-                let tracks = [];
+                // Collect all MIDI notes
+                let allNotes = [];
                 
-                // Drums track
-                let drumsTrack = { tempo: tempo, notes: [] };
+                // Drums
                 for (let bar = 0; bar < numBars; bar++) {
                     pattern.kick.forEach(time => {
-                        let t = Math.round((bar * 4 + time) * PPQ);
-                        drumsTrack.notes.push({ time: t, note: 36, velocity: Math.round(100 * (drumLevel / 100)), duration: Math.round(0.5 * PPQ) });
+                        allNotes.push({
+                            start: Math.round((bar * 4 + time) * PPQ),
+                            duration: Math.round(0.5 * PPQ),
+                            pitch: 36,
+                            velocity: Math.round(100 * (drumLevel / 100))
+                        });
                     });
                     
                     pattern.snare.forEach(time => {
-                        let t = Math.round((bar * 4 + time) * PPQ);
-                        drumsTrack.notes.push({ time: t, note: 38, velocity: Math.round(90 * (drumLevel / 100)), duration: Math.round(0.5 * PPQ) });
+                        allNotes.push({
+                            start: Math.round((bar * 4 + time) * PPQ),
+                            duration: Math.round(0.5 * PPQ),
+                            pitch: 38,
+                            velocity: Math.round(90 * (drumLevel / 100))
+                        });
                     });
                     
                     pattern.hihat.forEach(time => {
-                        let t = Math.round((bar * 4 + time) * PPQ);
-                        drumsTrack.notes.push({ time: t, note: 42, velocity: Math.round(70 * (drumLevel / 100)), duration: Math.round(0.25 * PPQ) });
+                        allNotes.push({
+                            start: Math.round((bar * 4 + time) * PPQ),
+                            duration: Math.round(0.25 * PPQ),
+                            pitch: 42,
+                            velocity: Math.round(70 * (drumLevel / 100))
+                        });
                     });
                 }
-                tracks.push(drumsTrack);
                 
-                // Bass track
-                let bassTrack = { notes: [] };
+                // Bass
                 const bass = generateBassLine(chords, numBars, bassLevel);
                 bass.forEach(note => {
-                    let t = Math.round(note.time * PPQ);
-                    let dur = Math.round(note.duration * PPQ);
-                    bassTrack.notes.push({ time: t, note: note.note, velocity: note.velocity, duration: dur });
+                    allNotes.push({
+                        start: Math.round(note.time * PPQ),
+                        duration: Math.round(note.duration * PPQ),
+                        pitch: note.note,
+                        velocity: Math.min(127, Math.round(note.velocity))
+                    });
                 });
-                tracks.push(bassTrack);
                 
-                // Pad track
-                let padTrack = { notes: [] };
+                // Pad
                 const pad = generatePad(chords, numBars, padLevel);
                 pad.forEach(note => {
-                    let t = Math.round(note.time * PPQ);
-                    let dur = Math.round(note.duration * PPQ);
-                    padTrack.notes.push({ time: t, note: note.note, velocity: note.velocity, duration: dur });
+                    allNotes.push({
+                        start: Math.round(note.time * PPQ),
+                        duration: Math.round(note.duration * PPQ),
+                        pitch: note.note,
+                        velocity: note.velocity
+                    });
                 });
-                tracks.push(padTrack);
                 
-                // Melody track
-                let melodyTrack = { notes: [] };
+                // Melody
                 const melody = generateMelody(chords, numBars, currentGenre, melodyLevel);
                 melody.forEach(note => {
-                    let t = Math.round(note.time * PPQ);
-                    let dur = Math.round(note.duration * PPQ);
-                    melodyTrack.notes.push({ time: t, note: note.note, velocity: note.velocity, duration: dur });
+                    allNotes.push({
+                        start: Math.round(note.time * PPQ),
+                        duration: Math.round(note.duration * PPQ),
+                        pitch: note.note,
+                        velocity: note.velocity
+                    });
                 });
-                tracks.push(melodyTrack);
                 
-                // Generate MIDI file
-                const midiData = writeMidiFile(tracks);
+                // Generate MIDI
+                const midiData = writeMidiFile(tempo, allNotes);
                 const blob = new Blob([midiData], { type: 'audio/midi' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
