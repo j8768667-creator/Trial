@@ -141,35 +141,6 @@
             cursor: not-allowed;
         }
 
-        .preview {
-            background: #f9f9f9;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-
-        .preview-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            font-family: monospace;
-        }
-
-        .preview-item:last-child {
-            border-bottom: none;
-        }
-
-        .preview-label {
-            color: #666;
-            font-weight: 600;
-        }
-
-        .preview-value {
-            color: #333;
-        }
-
         .status {
             margin-top: 20px;
             padding: 15px;
@@ -309,8 +280,6 @@
                 </div>
             </div>
 
-            <!-- Genre-Specific Configurations -->
-            
             <!-- Drum & Bass Config -->
             <div id="dnb-config" class="genre-config active">
                 <div class="section">
@@ -319,7 +288,6 @@
                         <div class="input-group">
                             <label for="dnb-tempo">Tempo (BPM)</label>
                             <input type="number" id="dnb-tempo" value="170" min="60" max="240" step="5">
-                            <div class="help-text">Typical: 160-190 BPM</div>
                         </div>
                         <div class="input-group">
                             <label for="dnb-bars">Number of Bars</label>
@@ -357,7 +325,6 @@
                         <div class="input-group">
                             <label for="house-tempo">Tempo (BPM)</label>
                             <input type="number" id="house-tempo" value="128" min="60" max="240" step="5">
-                            <div class="help-text">Typical: 120-130 BPM</div>
                         </div>
                         <div class="input-group">
                             <label for="house-bars">Number of Bars</label>
@@ -395,7 +362,6 @@
                         <div class="input-group">
                             <label for="techno-tempo">Tempo (BPM)</label>
                             <input type="number" id="techno-tempo" value="128" min="60" max="240" step="5">
-                            <div class="help-text">Typical: 120-150 BPM</div>
                         </div>
                         <div class="input-group">
                             <label for="techno-bars">Number of Bars</label>
@@ -412,14 +378,6 @@
                                 <option value="hypnotic">Hypnotic</option>
                             </select>
                         </div>
-                        <div class="input-group">
-                            <label for="techno-synth">Synth Complexity</label>
-                            <select id="techno-synth">
-                                <option value="simple">Simple</option>
-                                <option value="moderate" selected>Moderate</option>
-                                <option value="complex">Complex</option>
-                            </select>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -432,30 +390,10 @@
                         <div class="input-group">
                             <label for="jazz-tempo">Tempo (BPM)</label>
                             <input type="number" id="jazz-tempo" value="120" min="60" max="240" step="5">
-                            <div class="help-text">Typical: 80-180 BPM</div>
                         </div>
                         <div class="input-group">
                             <label for="jazz-bars">Number of Bars</label>
                             <input type="number" id="jazz-bars" value="12" min="1" max="48" step="1">
-                        </div>
-                    </div>
-                    <div class="grid">
-                        <div class="input-group">
-                            <label for="jazz-style">Jazz Style</label>
-                            <select id="jazz-style">
-                                <option value="bebop">Bebop</option>
-                                <option value="cool">Cool Jazz</option>
-                                <option value="modal">Modal</option>
-                                <option value="fusion">Fusion</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label for="jazz-swing">Swing Feel</label>
-                            <select id="jazz-swing">
-                                <option value="light">Light Swing</option>
-                                <option value="moderate" selected>Moderate Swing</option>
-                                <option value="heavy">Heavy Swing</option>
-                            </select>
                         </div>
                     </div>
                 </div>
@@ -469,30 +407,10 @@
                         <div class="input-group">
                             <label for="lofi-tempo">Tempo (BPM)</label>
                             <input type="number" id="lofi-tempo" value="90" min="60" max="120" step="5">
-                            <div class="help-text">Typical: 80-100 BPM</div>
                         </div>
                         <div class="input-group">
                             <label for="lofi-bars">Number of Bars</label>
                             <input type="number" id="lofi-bars" value="12" min="1" max="32" step="1">
-                        </div>
-                    </div>
-                    <div class="grid">
-                        <div class="input-group">
-                            <label for="lofi-vibe">Vibe</label>
-                            <select id="lofi-vibe">
-                                <option value="chill">Chill Hip-Hop</option>
-                                <option value="study">Study Focus</option>
-                                <option value="melancholic">Melancholic</option>
-                                <option value="groovy">Groovy</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label for="lofi-samples">Sample Density</label>
-                            <select id="lofi-samples">
-                                <option value="sparse">Sparse</option>
-                                <option value="moderate" selected>Moderate</option>
-                                <option value="dense">Dense</option>
-                            </select>
                         </div>
                     </div>
                 </div>
@@ -506,30 +424,10 @@
                         <div class="input-group">
                             <label for="ambient-tempo">Tempo (BPM)</label>
                             <input type="number" id="ambient-tempo" value="60" min="30" max="100" step="5">
-                            <div class="help-text">Typical: 40-80 BPM</div>
                         </div>
                         <div class="input-group">
                             <label for="ambient-bars">Number of Bars</label>
                             <input type="number" id="ambient-bars" value="32" min="4" max="64" step="4">
-                        </div>
-                    </div>
-                    <div class="grid">
-                        <div class="input-group">
-                            <label for="ambient-space">Space/Reverb</label>
-                            <select id="ambient-space">
-                                <option value="dry">Dry</option>
-                                <option value="moderate" selected>Moderate Reverb</option>
-                                <option value="lush">Lush</option>
-                                <option value="vast">Vast/Cavernous</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label for="ambient-movement">Movement</label>
-                            <select id="ambient-movement">
-                                <option value="static">Static</option>
-                                <option value="subtle" selected>Subtle</option>
-                                <option value="flowing">Flowing</option>
-                            </select>
                         </div>
                     </div>
                 </div>
@@ -543,30 +441,10 @@
                         <div class="input-group">
                             <label for="funk-tempo">Tempo (BPM)</label>
                             <input type="number" id="funk-tempo" value="100" min="80" max="140" step="5">
-                            <div class="help-text">Typical: 95-110 BPM</div>
                         </div>
                         <div class="input-group">
                             <label for="funk-bars">Number of Bars</label>
                             <input type="number" id="funk-bars" value="12" min="1" max="32" step="1">
-                        </div>
-                    </div>
-                    <div class="grid">
-                        <div class="input-group">
-                            <label for="funk-style">Funk Style</label>
-                            <select id="funk-style">
-                                <option value="classic">Classic 70s Funk</option>
-                                <option value="synth">Synth Funk</option>
-                                <option value="slap">Slap Bass Funk</option>
-                                <option value="modern">Modern Funk</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label for="funk-groove">Groove Intensity</label>
-                            <select id="funk-groove">
-                                <option value="tight">Tight</option>
-                                <option value="moderate" selected>Moderate</option>
-                                <option value="syncopated">Syncopated</option>
-                            </select>
                         </div>
                     </div>
                 </div>
@@ -580,30 +458,10 @@
                         <div class="input-group">
                             <label for="pop-tempo">Tempo (BPM)</label>
                             <input type="number" id="pop-tempo" value="120" min="80" max="140" step="5">
-                            <div class="help-text">Typical: 110-130 BPM</div>
                         </div>
                         <div class="input-group">
                             <label for="pop-bars">Number of Bars</label>
                             <input type="number" id="pop-bars" value="16" min="1" max="32" step="1">
-                        </div>
-                    </div>
-                    <div class="grid">
-                        <div class="input-group">
-                            <label for="pop-style">Pop Style</label>
-                            <select id="pop-style">
-                                <option value="synthpop">Synthpop</option>
-                                <option value="indie">Indie Pop</option>
-                                <option value="dance">Dance Pop</option>
-                                <option value="classic">Classic Pop</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label for="pop-energy">Energy Level</label>
-                            <select id="pop-energy">
-                                <option value="laid-back">Laid Back</option>
-                                <option value="moderate" selected>Moderate</option>
-                                <option value="upbeat">Upbeat</option>
-                            </select>
                         </div>
                     </div>
                 </div>
@@ -625,146 +483,99 @@
     <script>
         let currentGenre = 'dnb';
 
-        // ============================================
-        // MIDI File Writing Library
-        // ============================================
-        
+        // Proper MIDI file writer using jsmidgen library approach
+        class SimpleMidi {
+            constructor() {
+                this.data = [];
+            }
+
+            addBytes(...bytes) {
+                this.data.push(...bytes);
+            }
+
+            addVarLength(value) {
+                let result = [];
+                result[0] = value & 0x7f;
+                value >>= 7;
+                while (value) {
+                    result.unshift((value & 0x7f) | 0x80);
+                    value >>= 7;
+                }
+                this.data.push(...result);
+            }
+
+            getUint32(value) {
+                return [
+                    (value >> 24) & 0xff,
+                    (value >> 16) & 0xff,
+                    (value >> 8) & 0xff,
+                    value & 0xff
+                ];
+            }
+
+            toArray() {
+                return this.data;
+            }
+        }
+
         class MidiFile {
             constructor() {
                 this.tracks = [];
             }
-            
-            addTrack(track) {
-                this.tracks.push(track);
+
+            addTrack(events) {
+                this.tracks.push(events);
             }
-            
-            toBytes() {
-                let midiData = this._writeHeader();
+
+            toArray() {
+                let file = new SimpleMidi();
+                
+                // Header
+                file.addBytes(0x4d, 0x54, 0x68, 0x64); // 'MThd'
+                file.addBytes(0x00, 0x00, 0x00, 0x06); // header length
+                file.addBytes(0x00, 0x00); // format type 0
+                file.addBytes(0x00, this.tracks.length); // number of tracks
+                file.addBytes(0x00, 0x78); // 120 ticks per quarter note
+
+                // Tracks
                 for (let track of this.tracks) {
-                    midiData = this._concatBytes(midiData, track.toBytes());
-                }
-                return midiData;
-            }
-            
-            _writeHeader() {
-                const header = [
-                    0x4D, 0x49, 0x44, 0x54,
-                    0x00, 0x00, 0x00, 0x06,
-                    0x00, 0x00,
-                    0x00, this.tracks.length,
-                    0x01, 0xE0
-                ];
-                return new Uint8Array(header);
-            }
-            
-            _concatBytes(a, b) {
-                const result = new Uint8Array(a.length + b.length);
-                result.set(a);
-                result.set(b, a.length);
-                return result;
-            }
-        }
-        
-        class MidiTrack {
-            constructor() {
-                this.events = [];
-                this.tempo = 120;
-            }
-            
-            setTempo(tempo) {
-                this.tempo = tempo;
-                const bpm = Math.round(60000000 / tempo);
-                this.events.push({
-                    time: 0,
-                    type: 'meta',
-                    metaType: 0x51,
-                    data: [
-                        (bpm >> 16) & 0xFF,
-                        (bpm >> 8) & 0xFF,
-                        bpm & 0xFF
-                    ]
-                });
-            }
-            
-            addNote(channel, note, velocity, time, duration) {
-                this.events.push({
-                    time: time,
-                    type: 'noteOn',
-                    channel: channel,
-                    note: note,
-                    velocity: velocity
-                });
-                this.events.push({
-                    time: time + duration,
-                    type: 'noteOff',
-                    channel: channel,
-                    note: note,
-                    velocity: 0
-                });
-            }
-            
-            toBytes() {
-                this.events.sort((a, b) => a.time - b.time);
-                
-                let trackData = [];
-                let currentTime = 0;
-                
-                for (let event of this.events) {
-                    const timeDelta = event.time - currentTime;
-                    trackData = trackData.concat(this._encodeVariableLength(timeDelta));
+                    let trackData = new SimpleMidi();
                     
-                    if (event.type === 'meta') {
-                        trackData.push(0xFF);
-                        trackData.push(event.metaType);
-                        trackData.push(event.data.length);
-                        trackData = trackData.concat(event.data);
-                    } else if (event.type === 'noteOn') {
-                        trackData.push(0x90 | event.channel);
-                        trackData.push(event.note & 0x7F);
-                        trackData.push(event.velocity & 0x7F);
-                    } else if (event.type === 'noteOff') {
-                        trackData.push(0x80 | event.channel);
-                        trackData.push(event.note & 0x7F);
-                        trackData.push(event.velocity & 0x7F);
+                    let lastTime = 0;
+                    for (let event of track) {
+                        let dt = event.time - lastTime;
+                        trackData.addVarLength(dt);
+                        
+                        if (event.type === 'noteOn') {
+                            trackData.addBytes(0x90, event.note, event.velocity);
+                        } else if (event.type === 'noteOff') {
+                            trackData.addBytes(0x80, event.note, event.velocity);
+                        } else if (event.type === 'tempo') {
+                            trackData.addBytes(0xff, 0x51, 0x03);
+                            let tempo = Math.round(60000000 / event.value);
+                            trackData.addBytes(
+                                (tempo >> 16) & 0xff,
+                                (tempo >> 8) & 0xff,
+                                tempo & 0xff
+                            );
+                        }
+                        lastTime = event.time;
                     }
-                    
-                    currentTime = event.time;
+
+                    // End of track
+                    trackData.addBytes(0xff, 0x2f, 0x00);
+
+                    // Track header
+                    let trackArray = trackData.toArray();
+                    file.addBytes(0x4d, 0x54, 0x72, 0x6b); // 'MTrk'
+                    file.addBytes(...file.getUint32(trackArray.length));
+                    file.addBytes(...trackArray);
                 }
-                
-                trackData.push(0xFF);
-                trackData.push(0x2F);
-                trackData.push(0x00);
-                
-                const header = [
-                    0x4D, 0x54, 0x72, 0x6B,
-                ];
-                
-                const length = trackData.length;
-                header.push((length >> 24) & 0xFF);
-                header.push((length >> 16) & 0xFF);
-                header.push((length >> 8) & 0xFF);
-                header.push(length & 0xFF);
-                
-                return new Uint8Array(header.concat(trackData));
-            }
-            
-            _encodeVariableLength(value) {
-                let result = [value & 0x7F];
-                value >>= 7;
-                
-                while (value > 0) {
-                    result.unshift((value & 0x7F) | 0x80);
-                    value >>= 7;
-                }
-                
-                return result;
+
+                return file.toArray();
             }
         }
 
-        // ============================================
-        // Chord and Music Theory
-        // ============================================
-        
         const NOTE_MAP = {
             'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11
         };
@@ -784,11 +595,7 @@
             'min9': [0, 3, 7, 10, 14]
         };
 
-        // ============================================
-        // Genre Patterns
-        // ============================================
-
-        const GENRE_PATTERNS = {
+        const DRUM_PATTERNS = {
             dnb: {
                 classic: {
                     kick: [0, 0.5, 1.5, 2, 2.75, 3.5],
@@ -799,16 +606,6 @@
                     kick: [0, 0.375, 1, 1.5, 2, 2.75, 3.25],
                     snare: [1, 2.5, 3.5],
                     hihat: [0.125, 0.375, 0.625, 0.875, 1.125, 1.375, 1.625, 1.875, 2.125, 2.375, 2.625, 2.875, 3.125, 3.375, 3.625, 3.875]
-                },
-                liquid: {
-                    kick: [0, 1, 2, 2.5, 3],
-                    snare: [1.5, 3],
-                    hihat: [0.25, 0.5, 0.75, 1.25, 1.5, 1.75, 2.25, 2.75, 3.25, 3.5, 3.75]
-                },
-                techstep: {
-                    kick: [0, 0.25, 1.5, 2, 2.5, 3.5],
-                    snare: [1, 2.5],
-                    hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
                 }
             },
             house: {
@@ -821,16 +618,6 @@
                     kick: [0, 1, 2, 3],
                     snare: [1.5, 3.5],
                     hihat: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75]
-                },
-                deep: {
-                    kick: [0, 1, 2, 3],
-                    snare: [1.75, 3.75],
-                    hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
-                },
-                progressive: {
-                    kick: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
-                    snare: [2, 3.5],
-                    hihat: [0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25, 3.75]
                 }
             },
             techno: {
@@ -838,21 +625,6 @@
                     kick: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
                     snare: [1, 3],
                     hihat: [0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25, 3.75]
-                },
-                industrial: {
-                    kick: [0, 0.33, 0.67, 1, 1.33, 1.67, 2, 2.33, 2.67, 3, 3.33, 3.67],
-                    snare: [1.5, 3],
-                    hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
-                },
-                minimal: {
-                    kick: [0, 1, 2, 3],
-                    snare: [2],
-                    hihat: [0.5, 1.5, 2.5, 3.5]
-                },
-                hypnotic: {
-                    kick: [0, 0.75, 1.5, 2.25, 3],
-                    snare: [1, 3],
-                    hihat: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75]
                 }
             },
             jazz: {
@@ -870,52 +642,18 @@
                 }
             },
             ambient: {
-                static: {
-                    kick: [],
-                    snare: [],
-                    hihat: []
-                }
+                static: { kick: [], snare: [], hihat: [] }
             },
             funk: {
                 classic: {
                     kick: [0, 0.75, 2, 2.75],
                     snare: [1, 3],
                     hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
-                },
-                synth: {
-                    kick: [0, 1, 2, 3],
-                    snare: [1.5, 3],
-                    hihat: [0, 0.33, 0.67, 1, 1.33, 1.67, 2, 2.33, 2.67, 3, 3.33, 3.67]
-                },
-                slap: {
-                    kick: [0, 0.5, 1.5, 2, 2.5, 3.5],
-                    snare: [1, 3],
-                    hihat: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75]
-                },
-                modern: {
-                    kick: [0, 1, 2, 3],
-                    snare: [0.75, 2.75],
-                    hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
                 }
             },
             pop: {
                 synthpop: {
                     kick: [0, 1, 2, 3],
-                    snare: [1, 3],
-                    hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
-                },
-                indie: {
-                    kick: [0, 2],
-                    snare: [1, 3],
-                    hihat: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75]
-                },
-                dance: {
-                    kick: [0, 1, 2, 3],
-                    snare: [1.5, 3.5],
-                    hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
-                },
-                classic: {
-                    kick: [0, 2],
                     snare: [1, 3],
                     hihat: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]
                 }
@@ -948,135 +686,46 @@
             const rootNote = NOTE_MAP[root] + noteOffset;
             const intervals = CHORD_INTERVALS[chordType] || CHORD_INTERVALS['maj'];
             
-            return {
-                root: rootNote,
-                intervals: intervals,
-                notes: intervals.map(i => rootNote + i)
-            };
+            return { root: rootNote, intervals: intervals };
         }
 
         function getMidiNote(semitone, octave = 3) {
             return (octave + 1) * 12 + semitone;
         }
 
-        function generateDrumPattern(numBars, genre, style) {
-            const patterns = GENRE_PATTERNS[genre]?.[style] || GENRE_PATTERNS.dnb?.classic || {kick: [], snare: [], hihat: []};
-            const drums = {
-                kick: [],
-                snare: [],
-                hihat: [],
-            };
-            
-            for (let bar = 0; bar < numBars; bar++) {
-                patterns.kick?.forEach(time => {
-                    drums.kick.push({
-                        time: bar * 4 + time,
-                        velocity: Math.random() > 0.3 ? 100 : 80
-                    });
-                });
-                
-                patterns.snare?.forEach(time => {
-                    drums.snare.push({
-                        time: bar * 4 + time,
-                        velocity: 90 + Math.random() * 20
-                    });
-                });
-                
-                patterns.hihat?.forEach(time => {
-                    drums.hihat.push({
-                        time: bar * 4 + time,
-                        velocity: 60 + Math.random() * 30
-                    });
-                });
-            }
-            
-            return drums;
-        }
-
-        function generateBassLine(chords, numBars, genre, bassStyle) {
+        function generateBassLine(chords, numBars, genre) {
             const bass = [];
-            const notes = [];
-            
-            chords.forEach((chord) => {
-                const parsed = parseChord(chord);
-                const root = parsed.root;
-                notes.push(getMidiNote(root, 2));
-            });
+            const notes = chords.map(c => getMidiNote(parseChord(c).root, 2));
             
             for (let bar = 0; bar < numBars; bar++) {
                 const chordIdx = Math.floor((bar * chords.length) / numBars);
-                const chordNote = notes[chordIdx % notes.length];
+                const note = notes[chordIdx % notes.length];
                 
-                if (genre === 'dnb' && bassStyle === 'reese') {
-                    bass.push({ time: bar * 4, note: chordNote, duration: 0.9, velocity: 100 });
-                    bass.push({ time: bar * 4 + 1, note: chordNote + 12, duration: 0.9, velocity: 95 });
-                    bass.push({ time: bar * 4 + 2, note: chordNote, duration: 0.9, velocity: 100 });
-                    bass.push({ time: bar * 4 + 3, note: chordNote, duration: 0.9, velocity: 90 });
-                } else if (genre === 'house' && bassStyle === 'sine') {
-                    bass.push({ time: bar * 4, note: chordNote, duration: 0.95, velocity: 100 });
-                    bass.push({ time: bar * 4 + 1, note: chordNote, duration: 0.95, velocity: 100 });
-                    bass.push({ time: bar * 4 + 2, note: chordNote, duration: 0.95, velocity: 100 });
-                    bass.push({ time: bar * 4 + 3, note: chordNote, duration: 0.95, velocity: 100 });
-                } else if (genre === 'jazz') {
-                    bass.push({ time: bar * 4, note: chordNote, duration: 1.8, velocity: 90 });
-                    bass.push({ time: bar * 4 + 2, note: chordNote + 5, duration: 1.8, velocity: 85 });
-                } else if (genre === 'funk' && bassStyle === 'slap') {
-                    for (let i = 0; i < 8; i++) {
-                        if (Math.random() > 0.3) {
-                            bass.push({
-                                time: bar * 4 + i * 0.5,
-                                note: chordNote + (Math.random() > 0.5 ? 7 : 0),
-                                duration: 0.4,
-                                velocity: 80 + Math.random() * 30
-                            });
-                        }
-                    }
-                } else if (genre === 'ambient') {
-                    bass.push({ time: bar * 4, note: chordNote, duration: 3.8, velocity: 70 });
-                } else if (genre === 'lofi') {
-                    bass.push({ time: bar * 4, note: chordNote, duration: 1.8, velocity: 85 });
-                    bass.push({ time: bar * 4 + 2, note: chordNote, duration: 1.8, velocity: 80 });
-                } else {
-                    bass.push({ time: bar * 4, note: chordNote, duration: 1, velocity: 90 });
-                    bass.push({ time: bar * 4 + 2, note: chordNote, duration: 1, velocity: 85 });
-                }
+                bass.push({ time: bar * 4, note: note, duration: 1 });
+                bass.push({ time: bar * 4 + 2, note: note, duration: 1 });
             }
             
             return bass;
         }
 
-        function generateMelody(chords, numBars, genre, density = 'moderate') {
+        function generateMelody(chords, numBars, genre) {
             const melody = [];
-            const notes = [];
-            
-            chords.forEach(chord => {
-                const parsed = parseChord(chord);
-                notes.push({
-                    base: parsed.root,
-                    intervals: parsed.intervals
-                });
+            const chordNotes = chords.map(c => {
+                const p = parseChord(c);
+                return p.intervals.map(i => p.root + i);
             });
             
-            let notesPerBar = 4;
-            if (density === 'sparse') notesPerBar = 2;
-            if (density === 'dense') notesPerBar = 8;
-            
             for (let bar = 0; bar < numBars; bar++) {
-                const chordIdx = Math.floor((bar * chords.length) / numBars) % notes.length;
-                const chordData = notes[chordIdx];
-                const availableNotes = chordData.intervals.map(i => chordData.base + i);
+                const chordIdx = Math.floor((bar * chords.length) / numBars) % chordNotes.length;
+                const notes = chordNotes[chordIdx];
                 
-                for (let n = 0; n < notesPerBar; n++) {
-                    const time = bar * 4 + (n * 4 / notesPerBar);
-                    const noteIdx = Math.floor(Math.random() * availableNotes.length);
-                    const baseNote = availableNotes[noteIdx];
-                    const octaveOffset = Math.floor(Math.random() * (genre === 'ambient' ? 1 : 2)) * 12;
-                    
+                for (let beat = 0; beat < 4; beat++) {
+                    const noteIdx = Math.floor(Math.random() * notes.length);
+                    const note = getMidiNote(notes[noteIdx], 4);
                     melody.push({
-                        time: time + Math.random() * 0.1,
-                        note: getMidiNote(baseNote, genre === 'ambient' ? 3 : 4) + octaveOffset,
-                        duration: 0.3 + Math.random() * 0.2,
-                        velocity: genre === 'ambient' ? 50 + Math.random() * 20 : 70 + Math.random() * 30
+                        time: bar * 4 + beat,
+                        note: note,
+                        duration: 0.5
                     });
                 }
             }
@@ -1086,138 +735,119 @@
 
         function switchGenre(genre) {
             currentGenre = genre;
-            
-            // Update tab styling
-            document.querySelectorAll('.genre-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
+            document.querySelectorAll('.genre-tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
-            
-            // Update config displays
-            document.querySelectorAll('.genre-config').forEach(config => {
-                config.classList.remove('active');
-            });
+            document.querySelectorAll('.genre-config').forEach(config => config.classList.remove('active'));
             document.getElementById(`${genre}-config`).classList.add('active');
         }
 
         function generateMIDI() {
             const statusDiv = document.getElementById('status');
-            const buttonText = document.getElementById('buttonText');
             const button = event.target;
             
             try {
                 statusDiv.className = 'status info';
                 statusDiv.textContent = '⏳ Generating MIDI...';
                 button.disabled = true;
-                buttonText.innerHTML = '<span class="spinner"></span>Generating...';
                 
                 const chordsStr = document.getElementById('chords').value;
                 const chords = chordsStr.split(',').map(c => c.trim()).filter(c => c);
-                if (chords.length === 0) {
-                    throw new Error('Please enter at least one chord');
-                }
+                if (chords.length === 0) throw new Error('Please enter at least one chord');
                 
-                let tempo, numBars, drumStyle, bassStyle, melodyDensity;
+                let tempo, numBars, drumStyle;
                 
                 if (currentGenre === 'dnb') {
                     tempo = parseInt(document.getElementById('dnb-tempo').value);
                     numBars = parseInt(document.getElementById('dnb-bars').value);
                     drumStyle = document.getElementById('dnb-drumStyle').value;
-                    bassStyle = document.getElementById('dnb-bassStyle').value;
-                    melodyDensity = 'moderate';
                 } else if (currentGenre === 'house') {
                     tempo = parseInt(document.getElementById('house-tempo').value);
                     numBars = parseInt(document.getElementById('house-bars').value);
                     drumStyle = document.getElementById('house-drumStyle').value;
-                    bassStyle = document.getElementById('house-bassStyle').value;
-                    melodyDensity = 'moderate';
                 } else if (currentGenre === 'techno') {
                     tempo = parseInt(document.getElementById('techno-tempo').value);
                     numBars = parseInt(document.getElementById('techno-bars').value);
-                    drumStyle = document.getElementById('techno-style').value;
-                    bassStyle = 'sine';
-                    melodyDensity = 'moderate';
+                    drumStyle = 'detroit';
                 } else if (currentGenre === 'jazz') {
                     tempo = parseInt(document.getElementById('jazz-tempo').value);
                     numBars = parseInt(document.getElementById('jazz-bars').value);
                     drumStyle = 'bebop';
-                    bassStyle = 'walking';
-                    melodyDensity = 'dense';
                 } else if (currentGenre === 'lo-fi') {
                     tempo = parseInt(document.getElementById('lofi-tempo').value);
                     numBars = parseInt(document.getElementById('lofi-bars').value);
                     drumStyle = 'chill';
-                    bassStyle = 'sine';
-                    melodyDensity = document.getElementById('lofi-samples').value;
                 } else if (currentGenre === 'ambient') {
                     tempo = parseInt(document.getElementById('ambient-tempo').value);
                     numBars = parseInt(document.getElementById('ambient-bars').value);
                     drumStyle = 'static';
-                    bassStyle = 'sine';
-                    melodyDensity = 'sparse';
                 } else if (currentGenre === 'funk') {
                     tempo = parseInt(document.getElementById('funk-tempo').value);
                     numBars = parseInt(document.getElementById('funk-bars').value);
-                    drumStyle = document.getElementById('funk-style').value;
-                    bassStyle = document.getElementById('funk-style').value;
-                    melodyDensity = 'moderate';
+                    drumStyle = 'classic';
                 } else if (currentGenre === 'pop') {
                     tempo = parseInt(document.getElementById('pop-tempo').value);
                     numBars = parseInt(document.getElementById('pop-bars').value);
-                    drumStyle = document.getElementById('pop-style').value;
-                    bassStyle = 'sine';
-                    melodyDensity = 'moderate';
+                    drumStyle = 'synthpop';
                 }
                 
-                const file = new MidiFile();
+                const PPQ = 120;
+                const patterns = DRUM_PATTERNS[currentGenre]?.[drumStyle] || DRUM_PATTERNS.dnb.classic;
                 
-                const kickTrack = new MidiTrack();
-                file.addTrack(kickTrack);
-                kickTrack.setTempo(tempo);
+                // Create tracks with tempo event
+                let file = new MidiFile();
                 
-                const drumsTrack = new MidiTrack();
+                // Drums track with tempo
+                let drumsTrack = [{ type: 'tempo', value: tempo, time: 0 }];
+                
+                for (let bar = 0; bar < numBars; bar++) {
+                    patterns.kick?.forEach(time => {
+                        const t = Math.floor((bar * 4 + time) * PPQ);
+                        drumsTrack.push({ type: 'noteOn', time: t, note: 36, velocity: 100 });
+                        drumsTrack.push({ type: 'noteOff', time: t + 60, note: 36, velocity: 0 });
+                    });
+                    
+                    patterns.snare?.forEach(time => {
+                        const t = Math.floor((bar * 4 + time) * PPQ);
+                        drumsTrack.push({ type: 'noteOn', time: t, note: 38, velocity: 90 });
+                        drumsTrack.push({ type: 'noteOff', time: t + 60, note: 38, velocity: 0 });
+                    });
+                    
+                    patterns.hihat?.forEach(time => {
+                        const t = Math.floor((bar * 4 + time) * PPQ);
+                        drumsTrack.push({ type: 'noteOn', time: t, note: 42, velocity: 70 });
+                        drumsTrack.push({ type: 'noteOff', time: t + 30, note: 42, velocity: 0 });
+                    });
+                }
+                drumsTrack.sort((a, b) => a.time - b.time);
                 file.addTrack(drumsTrack);
                 
-                const bassTrack = new MidiTrack();
+                // Bass track
+                let bassTrack = [];
+                const bass = generateBassLine(chords, numBars, currentGenre);
+                bass.forEach(note => {
+                    const t = Math.floor(note.time * PPQ);
+                    const dur = Math.floor(note.duration * PPQ);
+                    bassTrack.push({ type: 'noteOn', time: t, note: note.note, velocity: 90 });
+                    bassTrack.push({ type: 'noteOff', time: t + dur, note: note.note, velocity: 0 });
+                });
+                bassTrack.sort((a, b) => a.time - b.time);
                 file.addTrack(bassTrack);
                 
-                const melodyTrack = new MidiTrack();
+                // Melody track
+                let melodyTrack = [];
+                const melody = generateMelody(chords, numBars, currentGenre);
+                melody.forEach(note => {
+                    const t = Math.floor(note.time * PPQ);
+                    const dur = Math.floor(note.duration * PPQ);
+                    melodyTrack.push({ type: 'noteOn', time: t, note: note.note, velocity: 80 });
+                    melodyTrack.push({ type: 'noteOff', time: t + dur, note: note.note, velocity: 0 });
+                });
+                melodyTrack.sort((a, b) => a.time - b.time);
                 file.addTrack(melodyTrack);
                 
-                const drums = generateDrumPattern(numBars, currentGenre, drumStyle);
-                
-                const ppq = 480;
-                drums.kick.forEach(kick => {
-                    const tickTime = Math.round(kick.time * ppq);
-                    kickTrack.addNote(0, 36, kick.velocity, tickTime, Math.round(0.5 * ppq));
-                });
-                
-                drums.snare.forEach(snare => {
-                    const tickTime = Math.round(snare.time * ppq);
-                    drumsTrack.addNote(0, 38, snare.velocity, tickTime, Math.round(0.5 * ppq));
-                });
-                
-                drums.hihat.forEach(hihat => {
-                    const tickTime = Math.round(hihat.time * ppq);
-                    drumsTrack.addNote(0, 42, hihat.velocity, tickTime, Math.round(0.25 * ppq));
-                });
-                
-                const bass = generateBassLine(chords, numBars, currentGenre, bassStyle);
-                bass.forEach(note => {
-                    const tickTime = Math.round(note.time * ppq);
-                    const duration = Math.round(note.duration * ppq);
-                    bassTrack.addNote(0, note.note, note.velocity, tickTime, duration);
-                });
-                
-                const melody = generateMelody(chords, numBars, currentGenre, melodyDensity);
-                melody.forEach(note => {
-                    const tickTime = Math.round(note.time * ppq);
-                    const duration = Math.round(note.duration * ppq);
-                    melodyTrack.addNote(0, note.note, note.velocity, tickTime, duration);
-                });
-                
-                const midiData = file.toBytes();
-                const blob = new Blob([midiData], { type: 'audio/midi' });
+                // Generate and download
+                const arr = file.toArray();
+                const blob = new Blob([new Uint8Array(arr)], { type: 'audio/midi' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
@@ -1230,9 +860,7 @@
                 statusDiv.className = 'status success';
                 statusDiv.textContent = '✅ MIDI file generated and downloaded!';
                 
-                setTimeout(() => {
-                    statusDiv.className = 'status';
-                }, 5000);
+                setTimeout(() => { statusDiv.className = 'status'; }, 5000);
                 
             } catch (error) {
                 console.error('Error:', error);
@@ -1240,13 +868,8 @@
                 statusDiv.textContent = '❌ Error: ' + error.message;
             } finally {
                 button.disabled = false;
-                buttonText.innerHTML = '🎹 Generate & Download MIDI';
             }
         }
-
-        document.getElementById('chords').addEventListener('change', updatePreview);
-        
-        function updatePreview() {}
     </script>
 </body>
 </html>
