@@ -257,18 +257,66 @@ function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-
 
 let activeStyle="lofi";
 const libGenre=document.getElementById("libGenre"),libSection=document.getElementById("libSection"),libMood=document.getElementById("libMood"),libComplexity=document.getElementById("libComplexity"),progressionPick=document.getElementById("progressionPick"),libKey=document.getElementById("libKey"),libraryMeta=document.getElementById("libraryMeta");
-function unique(field){return["Any",...Array.from(new Set(PROGRESSION_LIBRARY.map(x=>x[field]))).sort()]}
-function fillSelect(el,values){el.innerHTML=values.map(v=>`<option value="${v}">${v}</option>`).join("")}
-fillSelect(libGenre,unique("genre"));fillSelect(libSection,unique("section"));fillSelect(libMood,unique("mood"));fillSelect(libComplexity,unique("complexity"));
-libGenre.value="Pop";libSection.value="Any";libMood.value="Any";libComplexity.value="Any";
-function matches(){return PROGRESSION_LIBRARY.filter(p=>(libGenre.value==="Any"||p.genre===libGenre.value)&&(libSection.value==="Any"||p.section===libSection.value)&&(libMood.value==="Any"||p.mood===libMood.value)&&(libComplexity.value==="Any"||p.complexity===libComplexity.value))}
-function updateProgressions(preferredId=null){const list=matches();progressionPick.innerHTML=list.length?list.map(p=>`<option value="${p.id}">${p.id} · ${p.chords.join(" – ")}</option>`).join(""):`<option value="">No exact matches</option>`;if(preferredId&&list.some(p=>p.id===preferredId))progressionPick.value=preferredId;updateLibraryMeta()}
+function valuesFrom(list,field){return ["Any",...Array.from(new Set(list.map(x=>x[field]))).sort()]}
+function fillSelect(el,values,preferred="Any"){
+  el.innerHTML=values.map(v=>`<option value="${v}">${v}</option>`).join("");
+  el.value=values.includes(preferred)?preferred:"Any";
+}
+function filterLibrary({genre="Any",section="Any",mood="Any",complexity="Any"}={}){
+  return PROGRESSION_LIBRARY.filter(p=>(genre==="Any"||p.genre===genre)&&(section==="Any"||p.section===section)&&(mood==="Any"||p.mood===mood)&&(complexity==="Any"||p.complexity===complexity));
+}
+function refreshDependentFilters(changed="genre"){
+  const old={genre:libGenre.value||"Pop",section:libSection.value||"Any",mood:libMood.value||"Any",complexity:libComplexity.value||"Any"};
+  if(changed==="genre"){
+    const byGenre=filterLibrary({genre:old.genre});
+    fillSelect(libSection,valuesFrom(byGenre,"section"),"Any");
+    fillSelect(libMood,valuesFrom(byGenre,"mood"),"Any");
+    fillSelect(libComplexity,valuesFrom(byGenre,"complexity"),"Any");
+  }else if(changed==="section"){
+    const base=filterLibrary({genre:old.genre,section:old.section});
+    fillSelect(libMood,valuesFrom(base,"mood"),"Any");
+    fillSelect(libComplexity,valuesFrom(base,"complexity"),"Any");
+  }else if(changed==="mood"){
+    const base=filterLibrary({genre:old.genre,section:old.section,mood:old.mood});
+    fillSelect(libComplexity,valuesFrom(base,"complexity"),"Any");
+  }
+  updateProgressions();
+}
+fillSelect(libGenre,valuesFrom(PROGRESSION_LIBRARY,"genre"),"Pop");
+fillSelect(libSection,["Any"],"Any");fillSelect(libMood,["Any"],"Any");fillSelect(libComplexity,["Any"],"Any");
+function matches(){return filterLibrary({genre:libGenre.value,section:libSection.value,mood:libMood.value,complexity:libComplexity.value})}
+function updateProgressions(preferredId=null){
+  let list=matches();
+  /* Defensive fallback: dependent menus should prevent impossible combinations,
+     but a stale browser value must never leave the progression box empty. */
+  if(!list.length){
+    libComplexity.value="Any";
+    list=matches();
+  }
+  if(!list.length){
+    libMood.value="Any";
+    list=matches();
+  }
+  if(!list.length){
+    libSection.value="Any";
+    list=matches();
+  }
+  if(!list.length) list=filterLibrary({genre:libGenre.value});
+  if(!list.length) list=PROGRESSION_LIBRARY.slice();
+  progressionPick.innerHTML=list.map(p=>`<option value="${p.id}">${p.id} · ${p.chords.join(" – ")}</option>`).join("");
+  if(preferredId&&list.some(p=>p.id===preferredId))progressionPick.value=preferredId;
+  updateLibraryMeta();
+}
 function currentProgression(){return PROGRESSION_LIBRARY.find(p=>p.id===progressionPick.value)||null}
-function updateLibraryMeta(){const p=currentProgression();libraryMeta.textContent=p?`${p.genre} · ${p.section} · ${p.mood} · ${p.complexity} · suggested tempo ${p.tempo[0]}–${p.tempo[1]} BPM · ${matches().length} matching progression(s)`:"Choose broader filters to find a progression."}
-[libGenre,libSection,libMood,libComplexity].forEach(el=>el.addEventListener("change",()=>updateProgressions()));progressionPick.addEventListener("change",updateLibraryMeta);
-document.getElementById("randomProgression").addEventListener("click",()=>{const list=matches();if(!list.length)return;const p=list[Math.floor(Math.random()*list.length)];progressionPick.value=p.id;updateLibraryMeta()});
+function updateLibraryMeta(){const p=currentProgression(),count=matches().length||progressionPick.options.length;libraryMeta.textContent=p?`${p.genre} · ${p.section} · ${p.mood} · ${p.complexity} · suggested tempo ${p.tempo[0]}–${p.tempo[1]} BPM · ${count} available progression(s)`:"Select a progression."}
+libGenre.addEventListener("change",()=>refreshDependentFilters("genre"));
+libSection.addEventListener("change",()=>refreshDependentFilters("section"));
+libMood.addEventListener("change",()=>refreshDependentFilters("mood"));
+libComplexity.addEventListener("change",()=>updateProgressions());
+progressionPick.addEventListener("change",updateLibraryMeta);
+document.getElementById("randomProgression").addEventListener("click",()=>{const list=matches().length?matches():PROGRESSION_LIBRARY.filter(p=>libGenre.value==="Any"||p.genre===libGenre.value);const p=list[Math.floor(Math.random()*list.length)];progressionPick.value=p.id;updateLibraryMeta()});
 document.getElementById("loadProgression").addEventListener("click",()=>{const p=currentProgression();if(!p)return;const semitones=noteNameToPc(libKey.value);document.getElementById("chords").value=p.chords.map(c=>transposeChord(c,semitones)).join(", ");document.getElementById("tempo").value=Math.round((p.tempo[0]+p.tempo[1])/2);const styleMap={Pop:"pop",Rock:"pop",Indie:"lofi",Folk:"lofi",Country:"pop",EDM:"house",House:"house",Soul:"soul","R&B":"soul","Jazz Pop":"jazz","Lo-Fi":"lofi",Ambient:"ambient",Cinematic:"ambient",Funk:"funk",Gospel:"soul",Blues:"jazz",Ballad:"pop",Alternative:"pop",Britpop:"pop",Acoustic:"lofi"};if(styleMap[p.genre]) activeStyle=styleMap[p.genre];libraryMeta.textContent=`Loaded ${p.id} in ${libKey.value}: ${document.getElementById("chords").value}`});
-updateProgressions();
+refreshDependentFilters("genre");
 
 const tempo=document.getElementById("tempo");
 for(const id of["swing","humanize","velocity"]){const el=document.getElementById(id),out=document.getElementById(id+"Out");el.addEventListener("input",()=>out.textContent=el.value+"%")}
