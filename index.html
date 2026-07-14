@@ -58,22 +58,10 @@ button.secondary{background:#fff;color:var(--a);border:2px solid var(--a)}
 <main>
 <section>
   <h2>1. Music</h2>
-  <div class="grid two">
-    <div class="field">
-      <label for="chords">Chord progression</label>
-      <input id="chords" value="Cmaj7, Am7, Dm7, G7">
-      <small>One chord per bar, repeated as needed. Supports sharps, flats, 6, 7, maj7, m7, m9, 9, dim, aug, sus2, sus4, add9 and slash basses.</small>
-    </div>
-    <div class="field">
-      <label for="genre">Arrangement style</label>
-      <select id="genre">
-        <option value="dnb">Drum & Bass</option><option value="house">House</option>
-        <option value="techno">Techno</option><option value="jazz">Jazz</option>
-        <option value="lofi" selected>Lo-Fi</option><option value="ambient">Ambient</option>
-        <option value="funk">Funk</option><option value="pop">Pop</option>
-        <option value="chill">Chillwave</option><option value="soul">Soul</option>
-      </select>
-    </div>
+  <div class="field">
+    <label for="chords">Chord progression</label>
+    <input id="chords" value="Cmaj7, Am7, Dm7, G7">
+    <small>One chord per bar, repeated as needed. Supports sharps, flats, 6, 7, maj7, m7, m9, 9, dim, aug, sus2, sus4, add9 and slash basses. The arrangement is chosen automatically from the progression genre.</small>
   </div>
 
   <div class="libraryCard">
@@ -267,6 +255,7 @@ function writeMidi(tempo,bars,tracks){const chunks=[];chunks.push(midiTrack("Con
 function download(bytes,name){const blob=new Blob([bytes],{type:"audio/midi"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 
+let activeStyle="lofi";
 const libGenre=document.getElementById("libGenre"),libSection=document.getElementById("libSection"),libMood=document.getElementById("libMood"),libComplexity=document.getElementById("libComplexity"),progressionPick=document.getElementById("progressionPick"),libKey=document.getElementById("libKey"),libraryMeta=document.getElementById("libraryMeta");
 function unique(field){return["Any",...Array.from(new Set(PROGRESSION_LIBRARY.map(x=>x[field]))).sort()]}
 function fillSelect(el,values){el.innerHTML=values.map(v=>`<option value="${v}">${v}</option>`).join("")}
@@ -278,13 +267,12 @@ function currentProgression(){return PROGRESSION_LIBRARY.find(p=>p.id===progress
 function updateLibraryMeta(){const p=currentProgression();libraryMeta.textContent=p?`${p.genre} · ${p.section} · ${p.mood} · ${p.complexity} · suggested tempo ${p.tempo[0]}–${p.tempo[1]} BPM · ${matches().length} matching progression(s)`:"Choose broader filters to find a progression."}
 [libGenre,libSection,libMood,libComplexity].forEach(el=>el.addEventListener("change",()=>updateProgressions()));progressionPick.addEventListener("change",updateLibraryMeta);
 document.getElementById("randomProgression").addEventListener("click",()=>{const list=matches();if(!list.length)return;const p=list[Math.floor(Math.random()*list.length)];progressionPick.value=p.id;updateLibraryMeta()});
-document.getElementById("loadProgression").addEventListener("click",()=>{const p=currentProgression();if(!p)return;const semitones=noteNameToPc(libKey.value);document.getElementById("chords").value=p.chords.map(c=>transposeChord(c,semitones)).join(", ");document.getElementById("tempo").value=Math.round((p.tempo[0]+p.tempo[1])/2);const styleMap={Pop:"pop",Rock:"pop",Indie:"lofi",Folk:"lofi",Country:"pop",EDM:"house",House:"house",Soul:"soul","R&B":"soul","Jazz Pop":"jazz","Lo-Fi":"lofi",Ambient:"ambient",Cinematic:"ambient",Funk:"funk",Gospel:"soul",Blues:"jazz",Ballad:"pop",Alternative:"pop",Britpop:"pop",Acoustic:"lofi"};if(styleMap[p.genre]){document.getElementById("genre").value=styleMap[p.genre]}libraryMeta.textContent=`Loaded ${p.id} in ${libKey.value}: ${document.getElementById("chords").value}`});
+document.getElementById("loadProgression").addEventListener("click",()=>{const p=currentProgression();if(!p)return;const semitones=noteNameToPc(libKey.value);document.getElementById("chords").value=p.chords.map(c=>transposeChord(c,semitones)).join(", ");document.getElementById("tempo").value=Math.round((p.tempo[0]+p.tempo[1])/2);const styleMap={Pop:"pop",Rock:"pop",Indie:"lofi",Folk:"lofi",Country:"pop",EDM:"house",House:"house",Soul:"soul","R&B":"soul","Jazz Pop":"jazz","Lo-Fi":"lofi",Ambient:"ambient",Cinematic:"ambient",Funk:"funk",Gospel:"soul",Blues:"jazz",Ballad:"pop",Alternative:"pop",Britpop:"pop",Acoustic:"lofi"};if(styleMap[p.genre]) activeStyle=styleMap[p.genre];libraryMeta.textContent=`Loaded ${p.id} in ${libKey.value}: ${document.getElementById("chords").value}`});
 updateProgressions();
 
-const genre=document.getElementById("genre"),tempo=document.getElementById("tempo");
-genre.addEventListener("change",()=>tempo.value=STYLE[genre.value].tempo);
+const tempo=document.getElementById("tempo");
 for(const id of["swing","humanize","velocity"]){const el=document.getElementById(id),out=document.getElementById(id+"Out");el.addEventListener("input",()=>out.textContent=el.value+"%")}
-document.getElementById("generate").addEventListener("click",()=>{const btn=document.getElementById("generate"),status=document.getElementById("status"),summary=document.getElementById("summary");try{btn.disabled=true;status.className="status";status.textContent="";const chordTexts=document.getElementById("chords").value.split(",").map(x=>x.trim()).filter(Boolean);if(!chordTexts.length)throw new Error("Enter at least one chord.");const chords=chordTexts.map(parseChord);const bars=clamp(parseInt(document.getElementById("bars").value)||16,1,128);const bpm=clamp(parseInt(tempo.value)||120,30,240);const style=STYLE[genre.value],rng=hashSeed(parseInt(document.getElementById("seed").value)||1);const amount={swing:parseInt(document.getElementById("swing").value)/100,human:parseInt(document.getElementById("humanize").value)/100,master:parseInt(document.getElementById("velocity").value)/100};const tracks=[];if(document.getElementById("drums").checked&&style.drums!=="none")tracks.push({name:"Drums",program:null,channel:9,notes:makeDrumTrack(bars,style,rng,amount)});if(document.getElementById("bass").checked)tracks.push({name:"Bass",program:style.bassProgram,channel:1,notes:makeBassTrack(chords,bars,style,rng,amount)});if(document.getElementById("chordTrack").checked)tracks.push({name:"Chords",program:style.chordProgram,channel:2,notes:makeChordTrack(chords,bars,style,rng,amount)});if(document.getElementById("melody").checked)tracks.push({name:"Melody",program:style.melProgram,channel:3,notes:makeMelodyTrack(chords,bars,style,rng,amount)});if(!tracks.length)throw new Error("Select at least one track.");const bytes=writeMidi(bpm,bars,tracks);download(bytes,`${slug(genre.options[genre.selectedIndex].text)}-${bpm}bpm.mid`);const total=tracks.reduce((n,t)=>n+t.notes.length,0);status.className="status ok";status.textContent="✓ MIDI generated and downloaded.";summary.innerHTML=`Format 1 · ${PPQ} PPQ · ${bpm} BPM · ${bars} bars · ${tracks.length} musical tracks · ${total} notes<br>`+tracks.map(t=>`${t.name}: ${t.notes.length} notes`).join(" · ")}catch(e){console.error(e);status.className="status err";status.textContent="Error: "+e.message}finally{btn.disabled=false}});
+document.getElementById("generate").addEventListener("click",()=>{const btn=document.getElementById("generate"),status=document.getElementById("status"),summary=document.getElementById("summary");try{btn.disabled=true;status.className="status";status.textContent="";const chordTexts=document.getElementById("chords").value.split(",").map(x=>x.trim()).filter(Boolean);if(!chordTexts.length)throw new Error("Enter at least one chord.");const chords=chordTexts.map(parseChord);const bars=clamp(parseInt(document.getElementById("bars").value)||16,1,128);const bpm=clamp(parseInt(tempo.value)||120,30,240);const style=STYLE[activeStyle],rng=hashSeed(parseInt(document.getElementById("seed").value)||1);const amount={swing:parseInt(document.getElementById("swing").value)/100,human:parseInt(document.getElementById("humanize").value)/100,master:parseInt(document.getElementById("velocity").value)/100};const tracks=[];if(document.getElementById("drums").checked&&style.drums!=="none")tracks.push({name:"Drums",program:null,channel:9,notes:makeDrumTrack(bars,style,rng,amount)});if(document.getElementById("bass").checked)tracks.push({name:"Bass",program:style.bassProgram,channel:1,notes:makeBassTrack(chords,bars,style,rng,amount)});if(document.getElementById("chordTrack").checked)tracks.push({name:"Chords",program:style.chordProgram,channel:2,notes:makeChordTrack(chords,bars,style,rng,amount)});if(document.getElementById("melody").checked)tracks.push({name:"Melody",program:style.melProgram,channel:3,notes:makeMelodyTrack(chords,bars,style,rng,amount)});if(!tracks.length)throw new Error("Select at least one track.");const bytes=writeMidi(bpm,bars,tracks);download(bytes,`${slug(activeStyle)}-${bpm}bpm.mid`);const total=tracks.reduce((n,t)=>n+t.notes.length,0);status.className="status ok";status.textContent="✓ MIDI generated and downloaded.";summary.innerHTML=`Format 1 · ${PPQ} PPQ · ${bpm} BPM · ${bars} bars · ${tracks.length} musical tracks · ${total} notes<br>`+tracks.map(t=>`${t.name}: ${t.notes.length} notes`).join(" · ")}catch(e){console.error(e);status.className="status err";status.textContent="Error: "+e.message}finally{btn.disabled=false}});
 </script>
 </body>
 </html>
