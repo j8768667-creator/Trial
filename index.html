@@ -631,7 +631,7 @@
 
         function generateBassLine(chords, numBars, bassLevel) {
             const bass = [];
-            if (bassLevel < 5) return bass; // Skip if bass is too low
+            if (bassLevel < 5) return bass;
             
             const notes = chords.map(c => {
                 const p = parseChord(c);
@@ -748,73 +748,77 @@
             });
         });
 
+        // Helper function to encode variable-length quantity
+        function encodeVLQ(value) {
+            let result = [];
+            result[0] = value & 0x7f;
+            value >>= 7;
+            while (value > 0) {
+                result.unshift((value & 0x7f) | 0x80);
+                value >>= 7;
+            }
+            return result;
+        }
+
         function writeMidiFile(tracks) {
             let data = [];
             
-            data.push(...[0x4d, 0x54, 0x68, 0x64]);
-            data.push(...[0x00, 0x00, 0x00, 0x06]);
-            data.push(...[0x00, 0x00]);
-            data.push(...[0x00, tracks.length]);
-            data.push(...[0x00, 0x60]);
+            // MIDI Header
+            data.push(...[0x4d, 0x54, 0x68, 0x64]); // "MThd"
+            data.push(...[0x00, 0x00, 0x00, 0x06]); // Header length
+            data.push(...[0x00, 0x00]); // Format type 0
+            data.push(...[0x00, 0x01]); // Number of tracks
+            data.push(...[0x00, 0x60]); // Ticks per quarter note (96)
+            
+            // Combine all tracks into one
+            let allNotes = [];
+            let tempo = 120;
             
             for (let track of tracks) {
-                let trackData = [];
-                
-                trackData.push(0x00, 0xff, 0x51, 0x03);
-                let tempo = track.tempo || 120;
-                let microsecondsPerBeat = Math.round(60000000 / tempo);
-                trackData.push((microsecondsPerBeat >> 16) & 0xff);
-                trackData.push((microsecondsPerBeat >> 8) & 0xff);
-                trackData.push(microsecondsPerBeat & 0xff);
-                
-                let sortedNotes = [...track.notes].sort((a, b) => a.time - b.time);
-                
-                let lastTime = 0;
-                for (let note of sortedNotes) {
-                    let deltaTime = note.time - lastTime;
-                    
-                    let vlq = [];
-                    vlq[0] = deltaTime & 0x7f;
-                    deltaTime >>= 7;
-                    while (deltaTime > 0) {
-                        vlq.unshift((deltaTime & 0x7f) | 0x80);
-                        deltaTime >>= 7;
-                    }
-                    trackData.push(...vlq);
-                    
-                    trackData.push(0x90, note.note, note.velocity);
-                    lastTime = note.time;
-                    
-                    let noteDuration = note.duration;
-                    vlq = [];
-                    vlq[0] = noteDuration & 0x7f;
-                    noteDuration >>= 7;
-                    while (noteDuration > 0) {
-                        vlq.unshift((noteDuration & 0x7f) | 0x80);
-                        noteDuration >>= 7;
-                    }
-                    trackData.push(...vlq);
-                    
-                    let noteOffDelta = note.duration;
-                    vlq = [];
-                    vlq[0] = noteOffDelta & 0x7f;
-                    noteOffDelta >>= 7;
-                    while (noteOffDelta > 0) {
-                        vlq.unshift((noteOffDelta & 0x7f) | 0x80);
-                        noteOffDelta >>= 7;
-                    }
-                    trackData.push(...vlq);
-                    trackData.push(0x80, note.note, 0x40);
-                    lastTime += note.duration;
-                }
-                
-                trackData.push(0x00, 0xff, 0x2f, 0x00);
-                
-                data.push(...[0x4d, 0x54, 0x72, 0x6b]);
-                let len = trackData.length;
-                data.push((len >> 24) & 0xff, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff);
-                data.push(...trackData);
+                if (track.tempo) tempo = track.tempo;
+                allNotes.push(...track.notes);
             }
+            
+            // Sort notes by time
+            allNotes.sort((a, b) => a.time - b.time);
+            
+            // Build track data
+            let trackData = [];
+            
+            // Set tempo
+            trackData.push(0x00, 0xff, 0x51, 0x03);
+            let microsecondsPerBeat = Math.round(60000000 / tempo);
+            trackData.push((microsecondsPerBeat >> 16) & 0xff);
+            trackData.push((microsecondsPerBeat >> 8) & 0xff);
+            trackData.push(microsecondsPerBeat & 0xff);
+            
+            // Add notes
+            let lastTime = 0;
+            for (let note of allNotes) {
+                let deltaTime = note.time - lastTime;
+                trackData.push(...encodeVLQ(deltaTime));
+                
+                // Note on
+                trackData.push(0x90, note.note, Math.min(127, Math.max(0, note.velocity)));
+                
+                lastTime = note.time;
+                
+                // Note off (delta time for note duration)
+                let noteDuration = note.duration;
+                trackData.push(...encodeVLQ(noteDuration));
+                trackData.push(0x80, note.note, 0x40);
+                
+                lastTime += noteDuration;
+            }
+            
+            // End of track
+            trackData.push(0x00, 0xff, 0x2f, 0x00);
+            
+            // Track header
+            data.push(...[0x4d, 0x54, 0x72, 0x6b]); // "MTrk"
+            let len = trackData.length;
+            data.push((len >> 24) & 0xff, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff);
+            data.push(...trackData);
             
             return new Uint8Array(data);
         }
@@ -883,9 +887,11 @@
                 const PPQ = 96;
                 const pattern = DRUM_PATTERNS[currentGenre];
                 
+                // Build all tracks
+                let tracks = [];
+                
                 // Drums track
                 let drumsTrack = { tempo: tempo, notes: [] };
-                
                 for (let bar = 0; bar < numBars; bar++) {
                     pattern.kick.forEach(time => {
                         let t = Math.round((bar * 4 + time) * PPQ);
@@ -902,6 +908,7 @@
                         drumsTrack.notes.push({ time: t, note: 42, velocity: Math.round(70 * (drumLevel / 100)), duration: Math.round(0.25 * PPQ) });
                     });
                 }
+                tracks.push(drumsTrack);
                 
                 // Bass track
                 let bassTrack = { notes: [] };
@@ -911,6 +918,7 @@
                     let dur = Math.round(note.duration * PPQ);
                     bassTrack.notes.push({ time: t, note: note.note, velocity: note.velocity, duration: dur });
                 });
+                tracks.push(bassTrack);
                 
                 // Pad track
                 let padTrack = { notes: [] };
@@ -920,6 +928,7 @@
                     let dur = Math.round(note.duration * PPQ);
                     padTrack.notes.push({ time: t, note: note.note, velocity: note.velocity, duration: dur });
                 });
+                tracks.push(padTrack);
                 
                 // Melody track
                 let melodyTrack = { notes: [] };
@@ -929,9 +938,10 @@
                     let dur = Math.round(note.duration * PPQ);
                     melodyTrack.notes.push({ time: t, note: note.note, velocity: note.velocity, duration: dur });
                 });
+                tracks.push(melodyTrack);
                 
                 // Generate MIDI file
-                const midiData = writeMidiFile([drumsTrack, bassTrack, padTrack, melodyTrack]);
+                const midiData = writeMidiFile(tracks);
                 const blob = new Blob([midiData], { type: 'audio/midi' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
