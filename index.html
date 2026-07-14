@@ -54,6 +54,7 @@ button.secondary{background:#fff;color:var(--a);border:2px solid var(--a)}
 <header>
   <h1>🎹 Chord Arranger</h1>
   <p>Generate editable, multi-track Standard MIDI files</p>
+  <small style="color:#fff;opacity:.78;margin-top:8px">Build 2.1 · genre-selection fix</small>
 </header>
 <main>
 <section>
@@ -131,14 +132,26 @@ const QUALITIES = {
 const STYLE = {
  dnb:{tempo:172,bass:"dnb",drums:"dnb",pad:"stab",mel:"sync",bassProgram:38,chordProgram:89,melProgram:81},
  house:{tempo:126,bass:"octave",drums:"house",pad:"stab",mel:"sync",bassProgram:39,chordProgram:90,melProgram:81},
+ edm:{tempo:128,bass:"edm",drums:"edm",pad:"edm",mel:"edm",bassProgram:38,chordProgram:81,melProgram:81},
  techno:{tempo:130,bass:"pulse",drums:"techno",pad:"stab",mel:"sparse",bassProgram:38,chordProgram:91,melProgram:82},
  jazz:{tempo:118,bass:"walk",drums:"jazz",pad:"comp",mel:"jazz",bassProgram:32,chordProgram:0,melProgram:65},
- lofi:{tempo:88,bass:"lofi",drums:"lofi",pad:"long",mel:"lofi",bassProgram:33,chordProgram:4,melProgram:11},
+ blues:{tempo:102,bass:"blues",drums:"blues",pad:"blues",mel:"blues",bassProgram:33,chordProgram:27,melProgram:26},
+ lofi:{tempo:82,bass:"lofi",drums:"lofi",pad:"lofi",mel:"lofi",bassProgram:33,chordProgram:4,melProgram:11},
  ambient:{tempo:64,bass:"ambient",drums:"none",pad:"ambient",mel:"ambient",bassProgram:38,chordProgram:89,melProgram:94},
- funk:{tempo:104,bass:"funk",drums:"funk",pad:"comp",mel:"funk",bassProgram:36,chordProgram:4,melProgram:62},
- pop:{tempo:118,bass:"pop",drums:"pop",pad:"long",mel:"pop",bassProgram:33,chordProgram:48,melProgram:81},
+ cinematic:{tempo:82,bass:"cinematic",drums:"cinematic",pad:"cinematic",mel:"cinematic",bassProgram:43,chordProgram:48,melProgram:40},
+ funk:{tempo:104,bass:"funk",drums:"funk",pad:"funk",mel:"funk",bassProgram:36,chordProgram:4,melProgram:62},
+ pop:{tempo:118,bass:"pop",drums:"pop",pad:"pop",mel:"pop",bassProgram:33,chordProgram:48,melProgram:81},
+ rock:{tempo:136,bass:"rock",drums:"rock",pad:"rock",mel:"rock",bassProgram:34,chordProgram:30,melProgram:29},
+ alternative:{tempo:122,bass:"alternative",drums:"alternative",pad:"alternative",mel:"alternative",bassProgram:34,chordProgram:29,melProgram:30},
+ indie:{tempo:104,bass:"indie",drums:"indie",pad:"indie",mel:"indie",bassProgram:33,chordProgram:27,melProgram:26},
+ folk:{tempo:96,bass:"folk",drums:"folk",pad:"folk",mel:"folk",bassProgram:32,chordProgram:25,melProgram:73},
+ acoustic:{tempo:92,bass:"folk",drums:"acoustic",pad:"acoustic",mel:"acoustic",bassProgram:32,chordProgram:24,melProgram:73},
+ country:{tempo:112,bass:"country",drums:"country",pad:"country",mel:"country",bassProgram:32,chordProgram:25,melProgram:26},
+ ballad:{tempo:74,bass:"ballad",drums:"ballad",pad:"ballad",mel:"ballad",bassProgram:33,chordProgram:0,melProgram:40},
  chill:{tempo:84,bass:"lofi",drums:"chill",pad:"ambient",mel:"lofi",bassProgram:38,chordProgram:89,melProgram:85},
- soul:{tempo:94,bass:"soul",drums:"soul",pad:"comp",mel:"soul",bassProgram:33,chordProgram:4,melProgram:65}
+ soul:{tempo:94,bass:"soul",drums:"soul",pad:"soul",mel:"soul",bassProgram:33,chordProgram:4,melProgram:65},
+ rnb:{tempo:78,bass:"rnb",drums:"rnb",pad:"rnb",mel:"rnb",bassProgram:38,chordProgram:5,melProgram:54},
+ gospel:{tempo:98,bass:"gospel",drums:"gospel",pad:"gospel",mel:"gospel",bassProgram:33,chordProgram:16,melProgram:52}
 };
 
 /* Commercial-style harmonic templates. These are generic songwriting patterns,
@@ -285,11 +298,92 @@ function humanTick(t,rng,amount,allowSwing=true){let x=t;if(allowSwing&&Math.rou
 function vel(base,rng,amount,accent=0){return clamp(Math.round((base+accent+(rng()*2-1)*8*amount.human)*amount.master),1,127)}
 function addNote(track,start,duration,pitch,velocity,channel,rng,amount,swing=true){const s=humanTick(Math.round(start),rng,amount,swing);const d=Math.max(12,Math.round(duration*(1+(rng()*2-1)*.035*amount.human)));track.push({type:"note",tick:s,duration:d,pitch:clamp(Math.round(pitch),0,127),velocity:clamp(Math.round(velocity),1,127),channel})}
 function voiceChord(ch,previous){const pcs=ch.intervals.slice(0,4).map(i=>(ch.root+i)%12);const candidates=[];for(let inv=0;inv<pcs.length;inv++){let notes=pcs.map((pc,i)=>midiAt(pc,58+i*4));notes.sort((a,b)=>a-b);for(let i=1;i<notes.length;i++)while(notes[i]<=notes[i-1])notes[i]+=12;for(let shift=-12;shift<=12;shift+=12)candidates.push(notes.map(n=>n+shift))}const score=n=>previous?n.reduce((s,x,i)=>s+Math.abs(x-(previous[i]??previous[previous.length-1])),0):Math.abs(n.reduce((a,b)=>a+b,0)/n.length-62);return candidates.sort((a,b)=>score(a)-score(b))[0]}
-function makeChordTrack(chords,bars,style,rng,amount){const tr=[];let prev=null;for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),notes=voiceChord(ch,prev);prev=notes;let hits;if(style.pad==="comp")hits=[[0,1.4],[1.75,.65],[2.75,1]];else if(style.pad==="stab")hits=[[.5,.35],[1.5,.35],[2.5,.35],[3.5,.35]];else if(style.pad==="ambient")hits=[[0,4.8]];else hits=[[0,3.82]];hits.forEach(([beat,dur],hi)=>notes.forEach((n,i)=>addNote(tr,bar*BAR+beat*PPQ,dur*PPQ,n,vel(style.pad==="ambient"?55:68,rng,amount,hi===0?4:0),2,rng,amount)))}return tr}
-function makeBassTrack(chords,bars,style,rng,amount){const tr=[];for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),next=chordForBar(chords,bar+1);const root=midiAt(ch.bass,38),fifth=midiAt((ch.root+7)%12,41),octave=root+12;let p;switch(style.bass){case"walk":p=[[0,root],[1,midiAt((ch.root+choose(rng,scaleFor(ch)))%12,40)],[2,fifth],[3,midiAt((next.bass-1+12)%12,40)]],p=p.map(x=>[x[0],x[1],.82]);break;case"dnb":p=[[0,root,.7],[.75,octave,.25],[1.5,root,.48],[2.5,fifth,.45],[3.25,octave,.55]];break;case"octave":p=[[0,root,.72],[1,octave,.72],[2,root,.72],[3,octave,.72]];break;case"pulse":p=Array.from({length:8},(_,i)=>[i*.5,i%4===3?octave:root,.36]);break;case"funk":p=[[0,root,.35],[.75,octave,.25],[1.5,fifth,.3],[2,root,.35],[2.75,midiAt((ch.root+10)%12,40),.25],[3.5,octave,.3]];break;case"soul":p=[[0,root,.8],[1.5,fifth,.45],[2.5,octave,.55],[3.25,fifth,.45]];break;case"ambient":p=[[0,root,3.7]];break;case"pop":p=[[0,root,.8],[1,root,.8],[2,fifth,.8],[3,octave,.8]];break;default:p=[[0,root,1.55],[2,fifth,1.55]]}p.forEach(([beat,n,d])=>addNote(tr,bar*BAR+beat*PPQ,d*PPQ,n,vel(82,rng,amount,beat===0?8:0),1,rng,amount))}return tr}
-const DRUMS={house:{k:[0,1,2,3],s:[1,3],h:[.5,1.5,2.5,3.5]},techno:{k:[0,.5,1,1.5,2,2.5,3,3.5],s:[1,3],h:[.25,.75,1.25,1.75,2.25,2.75,3.25,3.75]},dnb:{k:[0,.75,2.5],s:[1,3],h:[0,.25,.5,.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75]},jazz:{k:[0,2.5],s:[1,3],h:[0,.67,1,1.67,2,2.67,3,3.67]},lofi:{k:[0,2.25],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},funk:{k:[0,.75,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},pop:{k:[0,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},chill:{k:[0,2],s:[1,3],h:[.5,1.5,2.5,3.5]},soul:{k:[0,2.5],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]}};
-function makeDrumTrack(bars,style,rng,amount){const tr=[],p=DRUMS[style.drums];if(!p)return tr;for(let bar=0;bar<bars;bar++){p.k.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.13,36,vel(105,rng,amount,b===0?10:0),9,rng,amount));p.s.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.15,38,vel(98,rng,amount,5),9,rng,amount));p.h.forEach((b,i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.08,i%4===3?46:42,vel(i%2?62:72,rng,amount),9,rng,amount));if(bar%4===3)addNote(tr,bar*BAR+3.75*PPQ,PPQ*.12,49,vel(78,rng,amount),9,rng,amount)}return tr}
-function makeMelodyTrack(chords,bars,style,rng,amount){const tr=[];let previous=72;const motif=[0,.75,1.5,2.5,3.25];for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),scale=scaleFor(ch);let beats;if(style.mel==="ambient")beats=bar%2===0?[0]:[2];else if(style.mel==="sparse")beats=[.5,2.5];else if(style.mel==="jazz")beats=[0,.67,1.5,2,2.67,3.5];else if(style.mel==="lofi")beats=[.25,1.5,2.75];else beats=motif;beats.forEach((beat,i)=>{const chordTone=(i===0||i===beats.length-1||rng()<.58);const interval=chordTone?choose(rng,ch.intervals.slice(0,4)):choose(rng,scale);let n=midiAt((ch.root+interval)%12,previous+(rng()-.5)*7);while(n-previous>7)n-=12;while(previous-n>7)n+=12;n=clamp(n,60,84);previous=n;let dur=style.mel==="ambient"?PPQ*2.8:style.mel==="jazz"?PPQ*.5:PPQ*.55;if(i===beats.length-1)dur*=1.35;addNote(tr,bar*BAR+beat*PPQ,dur,n,vel(style.mel==="ambient"?64:82,rng,amount,i===0?7:0),3,rng,amount)})}return tr}
+function makeChordTrack(chords,bars,style,rng,amount){
+  const tr=[];let prev=null;
+  for(let bar=0;bar<bars;bar++){
+    const ch=chordForBar(chords,bar);
+    if(style.pad==="rock"){
+      // Distorted rhythm guitar: low power chords, palm-muted eighths and open accents.
+      const root=midiAt(ch.root,43), fifth=midiAt((ch.root+7)%12,root+7);
+      const power=[root,fifth,root+12];
+      const pattern=bar%4===3
+        ? [[0,.32,10],[.5,.22,-8],[1,.38,2],[1.5,.22,-8],[2,.32,6],[2.5,.22,-8],[3,.22,2],[3.5,.18,0],[3.75,.18,8]]
+        : (bar%2===0
+          ? [[0,.38,10],[.5,.22,-8],[1,.22,-5],[1.5,.22,-8],[2,.38,7],[2.5,.22,-8],[3,.32,2],[3.5,.22,-6]]
+          : [[0,.35,8],[.75,.2,-5],[1,.35,4],[1.5,.2,-8],[2,.35,8],[2.75,.2,-5],[3,.35,3],[3.5,.2,-7]]);
+      pattern.forEach(([beat,dur,accent],hi)=>power.forEach((n,i)=>
+        addNote(tr,bar*BAR+beat*PPQ,dur*PPQ,n,vel(82,rng,amount,accent-i*3),2,rng,amount,false)));
+      continue;
+    }
+    const notes=voiceChord(ch,prev);prev=notes;let hits;
+    if(style.pad==="comp")hits=[[0,1.35],[1.75,.55],[2.75,.9]];
+    else if(style.pad==="stab")hits=[[.5,.3],[1.5,.3],[2.5,.3],[3.5,.3]];
+    else if(style.pad==="edm")hits=[[.5,.34],[1.5,.34],[2.5,.34],[3.5,.34]];
+    else if(style.pad==="pop")hits=[[0,.72],[1,.72],[2,.72],[3,.72]];
+    else if(style.pad==="indie")hits=bar%2?[[0,1.45],[2,1.45]]:[[0,.45],[.75,.45],[2,.45],[2.75,.45]];
+    else if(style.pad==="folk"||style.pad==="acoustic")hits=[[0,.35],[.5,.28],[1,.35],[1.5,.28],[2,.35],[2.5,.28],[3,.35],[3.5,.28]];
+    else if(style.pad==="country")hits=[[0,.42],[1,.3],[2,.42],[3,.3]];
+    else if(style.pad==="ballad")hits=[[0,1.7],[2,1.7]];
+    else if(style.pad==="rnb")hits=[[0,.85],[1.5,.45],[2.75,.8]];
+    else if(style.pad==="soul"||style.pad==="gospel")hits=[[0,1.15],[1.5,.45],[2.5,1.15]];
+    else if(style.pad==="funk")hits=[[0,.18],[.75,.16],[1.5,.18],[2,.18],[2.75,.16],[3.5,.18]];
+    else if(style.pad==="blues")hits=[[0,.5],[1.5,.35],[2,.5],[3.5,.35]];
+    else if(style.pad==="cinematic")hits=[[0,3.9]];
+    else if(style.pad==="alternative")hits=bar%2?[[0,.55],[1.5,.4],[2,.55],[3.5,.35]]:[[0,1.4],[2,1.4]];
+    else if(style.pad==="lofi")hits=[[0,1.6],[2.25,1.2]];
+    else if(style.pad==="ambient")hits=[[0,4.8]];
+    else hits=[[0,3.82]];
+    hits.forEach(([beat,dur],hi)=>notes.forEach((n,i)=>addNote(tr,bar*BAR+beat*PPQ,dur*PPQ,n,vel(style.pad==="ambient"?55:68,rng,amount,hi===0?4:0),2,rng,amount)));
+  }return tr
+}
+function makeBassTrack(chords,bars,style,rng,amount){const tr=[];for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),next=chordForBar(chords,bar+1);const root=midiAt(ch.bass,38),fifth=midiAt((ch.root+7)%12,41),octave=root+12;let p;switch(style.bass){case"walk":p=[[0,root],[1,midiAt((ch.root+choose(rng,scaleFor(ch)))%12,40)],[2,fifth],[3,midiAt((next.bass-1+12)%12,40)]],p=p.map(x=>[x[0],x[1],.82]);break;case"dnb":p=[[0,root,.7],[.75,octave,.25],[1.5,root,.48],[2.5,fifth,.45],[3.25,octave,.55]];break;case"octave":p=[[0,root,.72],[1,octave,.72],[2,root,.72],[3,octave,.72]];break;case"pulse":p=Array.from({length:8},(_,i)=>[i*.5,i%4===3?octave:root,.36]);break;case"funk":p=[[0,root,.35],[.75,octave,.25],[1.5,fifth,.3],[2,root,.35],[2.75,midiAt((ch.root+10)%12,40),.25],[3.5,octave,.3]];break;case"soul":p=[[0,root,.8],[1.5,fifth,.45],[2.5,octave,.55],[3.25,fifth,.45]];break;case"ambient":p=[[0,root,3.7]];break;case"pop":p=[[0,root,.8],[1,root,.8],[2,fifth,.8],[3,octave,.8]];break;case"rock":p=bar%4===3?[[0,root,.42],[.5,root,.3],[1,fifth,.42],[1.5,root,.3],[2,octave,.42],[2.5,fifth,.3],[3,root,.25],[3.5,midiAt(next.bass,38),.35]]:[[0,root,.42],[.5,root,.3],[1,root,.42],[1.5,fifth,.3],[2,octave,.42],[2.5,root,.3],[3,fifth,.42],[3.5,root,.3]];break;
+case"edm":p=[[0,root,.38],[.5,root,.3],[1,octave,.38],[1.5,root,.3],[2,root,.38],[2.5,fifth,.3],[3,octave,.38],[3.5,fifth,.3]];break;
+case"lofi":p=[[0,root,.8],[1.5,fifth,.42],[2.5,octave,.62],[3.5,fifth,.3]];break;
+case"indie":p=[[0,root,.72],[1,fifth,.5],[2,octave,.72],[3,midiAt(next.bass,39),.55]];break;
+case"folk":p=[[0,root,.82],[2,fifth,.82]];break;
+case"country":p=[[0,root,.62],[1,fifth,.5],[2,root,.62],[3,fifth,.5]];break;
+case"ballad":p=[[0,root,1.45],[2,octave,1.45]];break;
+case"rnb":p=[[0,root,.7],[1.75,fifth,.35],[2.5,octave,.48],[3.25,midiAt(next.bass,38),.45]];break;
+case"gospel":p=[[0,root,.62],[1,fifth,.42],[2,octave,.62],[3,midiAt(next.bass,39),.52]];break;
+case"blues":p=[[0,root,.45],[1,midiAt((ch.root+4)%12,40),.4],[2,fifth,.45],[3,midiAt((ch.root+10)%12,40),.4]];break;
+case"cinematic":p=[[0,root,1.8],[2,octave,1.8]];break;
+case"alternative":p=[[0,root,.55],[.75,root,.3],[1.5,fifth,.45],[2,octave,.55],[3,fifth,.45],[3.5,root,.3]];break;default:p=[[0,root,1.55],[2,fifth,1.55]]}p.forEach(([beat,n,d])=>addNote(tr,bar*BAR+beat*PPQ,d*PPQ,n,vel(82,rng,amount,beat===0?8:0),1,rng,amount))}return tr}
+const DRUMS={
+ house:{k:[0,1,2,3],s:[1,3],h:[.5,1.5,2.5,3.5]},
+ edm:{k:[0,1,2,3],s:[1,3],h:[.5,1.5,2.5,3.5]},
+ techno:{k:[0,.5,1,1.5,2,2.5,3,3.5],s:[1,3],h:[.25,.75,1.25,1.75,2.25,2.75,3.25,3.75]},
+ dnb:{k:[0,.75,2.5],s:[1,3],h:[0,.25,.5,.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75]},
+ jazz:{k:[0,2.5],s:[1,3],h:[0,.67,1,1.67,2,2.67,3,3.67]},
+ blues:{k:[0,2.5],s:[1,3],h:[0,.67,1,1.67,2,2.67,3,3.67]},
+ lofi:{k:[0,2.25],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ funk:{k:[0,.75,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ pop:{k:[0,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ rock:{k:[0,.75,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ alternative:{k:[0,1.5,2.5],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ indie:{k:[0,2.5],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ folk:{k:[0,2],s:[1,3],h:[0,1,2,3]},
+ acoustic:{k:[0,2],s:[1,3],h:[.5,1.5,2.5,3.5]},
+ country:{k:[0,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ ballad:{k:[0,2.5],s:[1,3],h:[0,1,2,3]},
+ chill:{k:[0,2],s:[1,3],h:[.5,1.5,2.5,3.5]},
+ soul:{k:[0,2.5],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ rnb:{k:[0,2.75],s:[1,3],h:[.5,1.5,2.5,3.5]},
+ gospel:{k:[0,2,2.75],s:[1,3],h:[0,.5,1,1.5,2,2.5,3,3.5]},
+ cinematic:{k:[0,2.5],s:[1,3],h:[0,1,2,3]}
+};
+function makeDrumTrack(bars,style,rng,amount){
+  const tr=[],p=DRUMS[style.drums];if(!p)return tr;
+  for(let bar=0;bar<bars;bar++){
+    if(style.drums==="rock" && bar%4===0)addNote(tr,bar*BAR,PPQ*.28,49,vel(112,rng,amount,8),9,rng,amount,false);
+    p.k.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.13,36,vel(style.drums==="rock"?112:105,rng,amount,b===0?10:0),9,rng,amount));
+    p.s.forEach(b=>addNote(tr,bar*BAR+b*PPQ,PPQ*.15,38,vel(style.drums==="rock"?108:98,rng,amount,5),9,rng,amount));
+    p.h.forEach((b,i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.08,(style.drums==="rock"&&bar%4===3&&b>=3)?46:(i%4===3?46:42),vel(i%2?66:78,rng,amount),9,rng,amount));
+    if(style.drums==="rock" && bar%4===3){
+      [[3,45],[3.25,47],[3.5,48],[3.75,50]].forEach(([b,n],i)=>addNote(tr,bar*BAR+b*PPQ,PPQ*.14,n,vel(88+i*7,rng,amount),9,rng,amount,false));
+    }else if(bar%4===3)addNote(tr,bar*BAR+3.75*PPQ,PPQ*.12,49,vel(78,rng,amount),9,rng,amount);
+  }return tr
+}
+function makeMelodyTrack(chords,bars,style,rng,amount){const tr=[];let previous=72;const motif=[0,.75,1.5,2.5,3.25];for(let bar=0;bar<bars;bar++){const ch=chordForBar(chords,bar),scale=scaleFor(ch);let beats;if(style.mel==="ambient")beats=bar%2===0?[0]:[2];else if(style.mel==="sparse")beats=[.5,2.5];else if(style.mel==="jazz")beats=[0,.67,1.5,2,2.67,3.5];else if(style.mel==="lofi")beats=[.25,1.5,2.75];else if(style.mel==="rock")beats=bar%4===3?[0,.5,1.5,2,2.5,3,3.5]:[0,1,1.5,2.5,3];else if(style.mel==="edm")beats=[.5,1.5,2.5,3.5];else if(style.mel==="indie")beats=bar%2?[.5,1.5,3]:[0,1.25,2.5,3.25];else if(style.mel==="folk"||style.mel==="acoustic")beats=[0,1,2,3];else if(style.mel==="country")beats=[0,.75,1.5,2.5,3.25];else if(style.mel==="ballad")beats=[0,2,3.25];else if(style.mel==="rnb")beats=[.25,1.25,2.75,3.5];else if(style.mel==="gospel")beats=[0,.75,1.5,2.5,3.25];else if(style.mel==="blues")beats=[0,.67,1.5,2.5,3.33];else if(style.mel==="cinematic")beats=bar%2===0?[0,2.5]:[1,3];else if(style.mel==="alternative")beats=[0,.75,1.5,2.75,3.5];else beats=motif;beats.forEach((beat,i)=>{const chordTone=(i===0||i===beats.length-1||rng()<(style.mel==="rock"?.72:.58));const rockPool=[0,3,5,7,10,12], bluesPool=[0,3,5,6,7,10,12], countryPool=[0,2,4,7,9,12];let interval;if(style.mel==="rock"||style.mel==="alternative")interval=choose(rng,rockPool);else if(style.mel==="blues")interval=choose(rng,bluesPool);else if(style.mel==="country"||style.mel==="folk"||style.mel==="acoustic")interval=choose(rng,countryPool);else interval=chordTone?choose(rng,ch.intervals.slice(0,4)):choose(rng,scale);let n=midiAt((ch.root+interval)%12,previous+(rng()-.5)*7);while(n-previous>7)n-=12;while(previous-n>7)n+=12;n=clamp(n,60,84);previous=n;let dur=style.mel==="ambient"?PPQ*2.8:style.mel==="jazz"?PPQ*.5:(style.mel==="rock"||style.mel==="alternative")?PPQ*.38:style.mel==="cinematic"?PPQ*1.4:style.mel==="ballad"?PPQ*.9:PPQ*.55;if(i===beats.length-1)dur*=1.35;addNote(tr,bar*BAR+beat*PPQ,dur,n,vel(style.mel==="ambient"?64:82,rng,amount,i===0?7:0),3,rng,amount)})}return tr}
 function vlq(value){value=Math.max(0,Math.round(value));let bytes=[value&127];while((value>>=7)>0)bytes.unshift((value&127)|128);return bytes}
 function u32(n){return[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255]}
 function strBytes(s){return Array.from(new TextEncoder().encode(s))}
@@ -357,7 +451,11 @@ function updateProgressions(preferredId=null){
     const marker=i===0?"Recommended · ":"";
     return `<option value="${p.id}">${marker}${p.id} · ${p.chords.join(" – ")}</option>`;
   }).join("");
-  if(preferredId&&list.some(p=>p.id===preferredId)) progressionPick.value=preferredId;
+  if(preferredId&&list.some(p=>p.id===preferredId)){
+    progressionPick.value=preferredId;
+  }else{
+    progressionPick.selectedIndex=0;
+  }
   updateLibraryMeta();
 }
 
@@ -376,7 +474,7 @@ document.getElementById("loadProgression").addEventListener("click",()=>{
   const semitones=noteNameToPc(libKey.value);
   document.getElementById("chords").value=p.chords.map(c=>transposeChord(c,semitones)).join(", ");
   document.getElementById("tempo").value=Math.round((p.tempo[0]+p.tempo[1])/2);
-  const styleMap={Pop:"pop",Rock:"pop",Indie:"lofi",Folk:"lofi",Country:"pop",EDM:"house",House:"house",Soul:"soul","R&B":"soul","Jazz Pop":"jazz","Lo-Fi":"lofi",Ambient:"ambient",Cinematic:"ambient",Funk:"funk",Gospel:"soul",Blues:"jazz",Ballad:"pop",Alternative:"pop",Britpop:"pop",Acoustic:"lofi"};
+  const styleMap={Pop:"pop",Rock:"rock",Indie:"indie",Folk:"folk",Country:"country",EDM:"edm",House:"house",Soul:"soul","R&B":"rnb","Jazz Pop":"jazz","Lo-Fi":"lofi",Ambient:"ambient",Cinematic:"cinematic",Funk:"funk",Gospel:"gospel",Blues:"blues",Ballad:"ballad",Alternative:"alternative",Britpop:"rock",Acoustic:"acoustic"};
   if(styleMap[p.genre]) activeStyle=styleMap[p.genre];
   libraryMeta.textContent=`Loaded ${p.id} in ${libKey.value}: ${document.getElementById("chords").value}`;
 });
@@ -384,7 +482,49 @@ updateProgressions();
 
 const tempo=document.getElementById("tempo");
 for(const id of["swing","humanize","velocity"]){const el=document.getElementById(id),out=document.getElementById(id+"Out");el.addEventListener("input",()=>out.textContent=el.value+"%")}
-document.getElementById("generate").addEventListener("click",()=>{const btn=document.getElementById("generate"),status=document.getElementById("status"),summary=document.getElementById("summary");try{btn.disabled=true;status.className="status";status.textContent="";const chordTexts=document.getElementById("chords").value.split(",").map(x=>x.trim()).filter(Boolean);if(!chordTexts.length)throw new Error("Enter at least one chord.");const chords=chordTexts.map(parseChord);const bars=clamp(parseInt(document.getElementById("bars").value)||16,1,128);const bpm=clamp(parseInt(tempo.value)||120,30,240);const style=STYLE[activeStyle],rng=hashSeed(parseInt(document.getElementById("seed").value)||1);const amount={swing:parseInt(document.getElementById("swing").value)/100,human:parseInt(document.getElementById("humanize").value)/100,master:parseInt(document.getElementById("velocity").value)/100};const tracks=[];if(document.getElementById("drums").checked&&style.drums!=="none")tracks.push({name:"Drums",program:null,channel:9,notes:makeDrumTrack(bars,style,rng,amount)});if(document.getElementById("bass").checked)tracks.push({name:"Bass",program:style.bassProgram,channel:1,notes:makeBassTrack(chords,bars,style,rng,amount)});if(document.getElementById("chordTrack").checked)tracks.push({name:"Chords",program:style.chordProgram,channel:2,notes:makeChordTrack(chords,bars,style,rng,amount)});if(document.getElementById("melody").checked)tracks.push({name:"Melody",program:style.melProgram,channel:3,notes:makeMelodyTrack(chords,bars,style,rng,amount)});if(!tracks.length)throw new Error("Select at least one track.");const bytes=writeMidi(bpm,bars,tracks);download(bytes,`${slug(activeStyle)}-${bpm}bpm.mid`);const total=tracks.reduce((n,t)=>n+t.notes.length,0);status.className="status ok";status.textContent="✓ MIDI generated and downloaded.";summary.innerHTML=`Format 1 · ${PPQ} PPQ · ${bpm} BPM · ${bars} bars · ${tracks.length} musical tracks · ${total} notes<br>`+tracks.map(t=>`${t.name}: ${t.notes.length} notes`).join(" · ")}catch(e){console.error(e);status.className="status err";status.textContent="Error: "+e.message}finally{btn.disabled=false}});
+const GENRE_STYLE_MAP={Pop:"pop",Rock:"rock",Indie:"indie",Folk:"folk",Country:"country",EDM:"edm",House:"house",Soul:"soul","R&B":"rnb","Jazz Pop":"jazz","Lo-Fi":"lofi",Ambient:"ambient",Cinematic:"cinematic",Funk:"funk",Gospel:"gospel",Blues:"blues",Ballad:"ballad",Alternative:"alternative",Britpop:"rock",Acoustic:"acoustic"};
+function selectedGenreAndStyle(){
+  // The visible genre dropdown is authoritative. The selected progression
+  // only supplies chords and metadata; it can never silently force Pop.
+  let genreName=libGenre.value;
+  if(!genreName || genreName==="Any"){
+    genreName=currentProgression()?.genre || "Pop";
+  }
+  const styleKey=GENRE_STYLE_MAP[genreName];
+  if(!styleKey) throw new Error(`No arrangement engine exists for ${genreName}.`);
+  return {genreName,styleKey};
+}
+
+document.getElementById("generate").addEventListener("click",()=>{
+  const btn=document.getElementById("generate"),status=document.getElementById("status"),summary=document.getElementById("summary");
+  try{
+    btn.disabled=true;status.className="status";status.textContent="";
+    const chordTexts=document.getElementById("chords").value.split(",").map(x=>x.trim()).filter(Boolean);
+    if(!chordTexts.length)throw new Error("Enter at least one chord.");
+    const chords=chordTexts.map(parseChord);
+    const bars=clamp(parseInt(document.getElementById("bars").value)||16,1,128);
+    const bpm=clamp(parseInt(tempo.value)||120,30,240);
+    const {genreName,styleKey}=selectedGenreAndStyle();
+    activeStyle=styleKey;
+    const style=STYLE[styleKey];
+    if(!style)throw new Error(`No arrangement engine exists for ${genreName}.`);
+    const rng=hashSeed(parseInt(document.getElementById("seed").value)||1);
+    const amount={swing:parseInt(document.getElementById("swing").value)/100,human:parseInt(document.getElementById("humanize").value)/100,master:parseInt(document.getElementById("velocity").value)/100};
+    const tracks=[];
+    if(document.getElementById("drums").checked&&style.drums!=="none")tracks.push({name:"Drums",program:null,channel:9,notes:makeDrumTrack(bars,style,rng,amount)});
+    if(document.getElementById("bass").checked)tracks.push({name:"Bass",program:style.bassProgram,channel:1,notes:makeBassTrack(chords,bars,style,rng,amount)});
+    if(document.getElementById("chordTrack").checked)tracks.push({name:"Chords",program:style.chordProgram,channel:2,notes:makeChordTrack(chords,bars,style,rng,amount)});
+    if(document.getElementById("melody").checked)tracks.push({name:"Melody",program:style.melProgram,channel:3,notes:makeMelodyTrack(chords,bars,style,rng,amount)});
+    if(!tracks.length)throw new Error("Select at least one track.");
+    const bytes=writeMidi(bpm,bars,tracks);
+    const progressionId=currentProgression()?.id || "custom";
+    download(bytes,`${slug(genreName)}-${slug(progressionId)}-${bpm}bpm.mid`);
+    const total=tracks.reduce((n,t)=>n+t.notes.length,0);
+    status.className="status ok";status.textContent=`✓ ${genreName} MIDI generated with the ${styleKey} engine.`;
+    summary.innerHTML=`${genreName} engine (${styleKey}) · Format 1 · ${PPQ} PPQ · ${bpm} BPM · ${bars} bars · ${tracks.length} musical tracks · ${total} notes<br>`+tracks.map(t=>`${t.name}: ${t.notes.length} notes`).join(" · ");
+  }catch(e){console.error(e);status.className="status err";status.textContent="Error: "+e.message}
+  finally{btn.disabled=false}
+});
 </script>
 </body>
 </html>
