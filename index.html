@@ -275,6 +275,18 @@
             color: white;
             border-color: #667eea;
         }
+
+        .debug-info {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.85em;
+            color: #333;
+            margin-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -559,6 +571,7 @@
                     </button>
                 </div>
                 <div id="status" class="status"></div>
+                <div id="debug" class="debug-info" style="display:none;"></div>
             </div>
         </div>
     </div>
@@ -748,12 +761,7 @@
             });
         });
 
-        // Helper to write bytes
-        function writeBytes(arr, ...bytes) {
-            arr.push(...bytes);
-        }
-
-        // Helper to encode variable-length quantity
+        // VLQ encoding
         function encodeVLQ(value) {
             let result = [];
             result[0] = value & 0x7f;
@@ -768,63 +776,56 @@
         function writeMidiFile(tempo, notes) {
             let data = [];
             
-            // MIDI Header - Format 0
-            writeBytes(data, 0x4D, 0x54, 0x68, 0x64); // "MThd"
-            writeBytes(data, 0x00, 0x00, 0x00, 0x06); // Header length = 6
-            writeBytes(data, 0x00, 0x00); // Format 0
-            writeBytes(data, 0x00, 0x01); // 1 track
-            writeBytes(data, 0x00, 0x60); // Division = 96 (PPQ)
+            // MIDI file header (MThd)
+            data.push(0x4d, 0x54, 0x68, 0x64); // "MThd"
+            data.push(0x00, 0x00, 0x00, 0x06); // Header length
+            data.push(0x00, 0x00);              // Format 0
+            data.push(0x00, 0x01);              // 1 track
+            data.push(0x00, 0x60);              // 96 PPQ
             
-            // Build track
+            // Build track data
             let trackData = [];
             
-            // Set tempo (microseconds per quarter note)
-            trackData.push(0x00, 0xFF, 0x51, 0x03);
+            // Set Tempo (FF 51)
+            trackData.push(0x00); // Delta time
+            trackData.push(0xFF, 0x51, 0x03); // Meta: Set Tempo
             let microsecondsPerBeat = Math.round(60000000 / tempo);
             trackData.push((microsecondsPerBeat >> 16) & 0xFF);
             trackData.push((microsecondsPerBeat >> 8) & 0xFF);
             trackData.push(microsecondsPerBeat & 0xFF);
             
-            // Sort notes by start time
+            // Sort and write notes
             let sortedNotes = [...notes].sort((a, b) => a.start - b.start);
             
-            let currentTime = 0;
+            let lastTime = 0;
             for (let note of sortedNotes) {
-                // Delta time to note on
-                let deltaTime = note.start - currentTime;
+                // Delta time for note-on
+                let deltaTime = note.start - lastTime;
                 trackData.push(...encodeVLQ(deltaTime));
                 
-                // Note on (0x90 = channel 0, note on)
-                trackData.push(0x90);
-                trackData.push(note.pitch & 0x7F); // Note number
-                trackData.push(note.velocity & 0x7F); // Velocity
+                // Note On (90 = channel 1)
+                trackData.push(0x90, note.pitch, note.velocity);
                 
-                currentTime = note.start;
+                // Delta time for note-off
+                trackData.push(...encodeVLQ(note.duration));
                 
-                // Delta time to note off
-                deltaTime = note.duration;
-                trackData.push(...encodeVLQ(deltaTime));
+                // Note Off (80 = channel 1)
+                trackData.push(0x80, note.pitch, 0x40);
                 
-                // Note off (0x80 = channel 0, note off)
-                trackData.push(0x80);
-                trackData.push(note.pitch & 0x7F); // Note number
-                trackData.push(0x40); // Velocity
-                
-                currentTime += note.duration;
+                lastTime = note.start + note.duration;
             }
             
-            // End of track
+            // End of Track (FF 2F)
             trackData.push(0x00, 0xFF, 0x2F, 0x00);
             
-            // Track header
-            writeBytes(data, 0x4D, 0x54, 0x72, 0x6B); // "MTrk"
+            // Track header (MTrk)
+            data.push(0x4d, 0x54, 0x72, 0x6b); // "MTrk"
             let trackLength = trackData.length;
             data.push((trackLength >> 24) & 0xFF);
             data.push((trackLength >> 16) & 0xFF);
             data.push((trackLength >> 8) & 0xFF);
             data.push(trackLength & 0xFF);
             
-            // Add track data
             data.push(...trackData);
             
             return new Uint8Array(data);
@@ -832,11 +833,13 @@
 
         function generateMIDI(evt) {
             const statusDiv = document.getElementById('status');
+            const debugDiv = document.getElementById('debug');
             const button = evt.target.closest('button');
             
             try {
                 statusDiv.className = 'status info';
                 statusDiv.textContent = '⏳ Generating MIDI...';
+                debugDiv.style.display = 'none';
                 button.disabled = true;
                 
                 const chordsStr = document.getElementById('chords').value;
@@ -904,7 +907,7 @@
                             start: Math.round((bar * 4 + time) * PPQ),
                             duration: Math.round(0.5 * PPQ),
                             pitch: 36,
-                            velocity: Math.round(100 * (drumLevel / 100))
+                            velocity: Math.max(1, Math.min(127, Math.round(100 * (drumLevel / 100))))
                         });
                     });
                     
@@ -913,7 +916,7 @@
                             start: Math.round((bar * 4 + time) * PPQ),
                             duration: Math.round(0.5 * PPQ),
                             pitch: 38,
-                            velocity: Math.round(90 * (drumLevel / 100))
+                            velocity: Math.max(1, Math.min(127, Math.round(90 * (drumLevel / 100))))
                         });
                     });
                     
@@ -922,7 +925,7 @@
                             start: Math.round((bar * 4 + time) * PPQ),
                             duration: Math.round(0.25 * PPQ),
                             pitch: 42,
-                            velocity: Math.round(70 * (drumLevel / 100))
+                            velocity: Math.max(1, Math.min(127, Math.round(70 * (drumLevel / 100))))
                         });
                     });
                 }
@@ -932,9 +935,9 @@
                 bass.forEach(note => {
                     allNotes.push({
                         start: Math.round(note.time * PPQ),
-                        duration: Math.round(note.duration * PPQ),
-                        pitch: note.note,
-                        velocity: Math.min(127, Math.round(note.velocity))
+                        duration: Math.max(1, Math.round(note.duration * PPQ)),
+                        pitch: Math.max(0, Math.min(127, note.note)),
+                        velocity: Math.max(1, Math.min(127, Math.round(note.velocity)))
                     });
                 });
                 
@@ -943,9 +946,9 @@
                 pad.forEach(note => {
                     allNotes.push({
                         start: Math.round(note.time * PPQ),
-                        duration: Math.round(note.duration * PPQ),
-                        pitch: note.note,
-                        velocity: note.velocity
+                        duration: Math.max(1, Math.round(note.duration * PPQ)),
+                        pitch: Math.max(0, Math.min(127, note.note)),
+                        velocity: Math.max(1, Math.min(127, note.velocity))
                     });
                 });
                 
@@ -954,11 +957,22 @@
                 melody.forEach(note => {
                     allNotes.push({
                         start: Math.round(note.time * PPQ),
-                        duration: Math.round(note.duration * PPQ),
-                        pitch: note.note,
-                        velocity: note.velocity
+                        duration: Math.max(1, Math.round(note.duration * PPQ)),
+                        pitch: Math.max(0, Math.min(127, note.note)),
+                        velocity: Math.max(1, Math.min(127, note.velocity))
                     });
                 });
+                
+                // Debug info
+                let debugInfo = `Total notes: ${allNotes.length}<br>`;
+                debugInfo += `Tempo: ${tempo} BPM<br>`;
+                debugInfo += `Duration: ${numBars * 4} beats<br>`;
+                debugInfo += `Sample notes:<br>`;
+                allNotes.slice(0, 5).forEach((n, i) => {
+                    debugInfo += `  ${i}: start=${n.start}, dur=${n.duration}, pitch=${n.pitch}, vel=${n.velocity}<br>`;
+                });
+                debugDiv.innerHTML = debugInfo;
+                debugDiv.style.display = 'block';
                 
                 // Generate MIDI
                 const midiData = writeMidiFile(tempo, allNotes);
@@ -980,6 +994,8 @@
                 console.error('Error:', error);
                 statusDiv.className = 'status error';
                 statusDiv.textContent = '❌ Error: ' + error.message;
+                debugDiv.innerHTML = error.stack;
+                debugDiv.style.display = 'block';
             } finally {
                 button.disabled = false;
             }
