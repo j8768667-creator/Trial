@@ -304,16 +304,16 @@
             <div class="section">
                 <h2>Step 2: Select Genre</h2>
                 <div class="genre-tabs">
-                    <button class="genre-tab active" onclick="switchGenre('dnb')">🥁 D&B</button>
-                    <button class="genre-tab" onclick="switchGenre('house')">🏠 House</button>
-                    <button class="genre-tab" onclick="switchGenre('techno')">⚙️ Techno</button>
-                    <button class="genre-tab" onclick="switchGenre('jazz')">🎷 Jazz</button>
-                    <button class="genre-tab" onclick="switchGenre('lo-fi')">✨ Lo-Fi</button>
-                    <button class="genre-tab" onclick="switchGenre('ambient')">🌙 Ambient</button>
-                    <button class="genre-tab" onclick="switchGenre('funk')">🕺 Funk</button>
-                    <button class="genre-tab" onclick="switchGenre('pop')">🎤 Pop</button>
-                    <button class="genre-tab" onclick="switchGenre('chill')">❄️ Chillwave</button>
-                    <button class="genre-tab" onclick="switchGenre('soul')">💜 Soul</button>
+                    <button class="genre-tab active" onclick="switchGenre(event, 'dnb')">🥁 D&B</button>
+                    <button class="genre-tab" onclick="switchGenre(event, 'house')">🏠 House</button>
+                    <button class="genre-tab" onclick="switchGenre(event, 'techno')">⚙️ Techno</button>
+                    <button class="genre-tab" onclick="switchGenre(event, 'jazz')">🎷 Jazz</button>
+                    <button class="genre-tab" onclick="switchGenre(event, 'lofi')">✨ Lo-Fi</button>
+                    <button class="genre-tab" onclick="switchGenre(event, 'ambient')">🌙 Ambient</button>
+                    <button class="genre-tab" onclick="switchGenre(event, 'funk')">🕺 Funk</button>
+                    <button class="genre-tab" onclick="switchGenre(event, 'pop')">🎤 Pop</button>
+                    <button class="genre-tab" onclick="switchGenre(event, 'chill')">❄️ Chillwave</button>
+                    <button class="genre-tab" onclick="switchGenre(event, 'soul')">💜 Soul</button>
                 </div>
             </div>
 
@@ -402,7 +402,7 @@
                 </div>
             </div>
 
-            <div id="lo-fi-config" class="genre-config">
+            <div id="lofi-config" class="genre-config">
                 <div class="section">
                     <h2>Lo-Fi Settings</h2>
                     <div class="grid-3">
@@ -535,17 +535,17 @@
                     <div class="input-group">
                         <label for="melody-level">Melody Level</label>
                         <input type="range" id="melody-level" min="0" max="100" value="85" step="5">
-                        <span class="range-value" id="melody-val">85%</span>
+                        <span class="range-value" id="melody-level-val">85%</span>
                     </div>
                     <div class="input-group">
                         <label for="pad-level">Pad Level</label>
                         <input type="range" id="pad-level" min="0" max="100" value="70" step="5">
-                        <span class="range-value" id="pad-val">70%</span>
+                        <span class="range-value" id="pad-level-val">70%</span>
                     </div>
                     <div class="input-group">
                         <label for="drum-level">Drum Level</label>
                         <input type="range" id="drum-level" min="0" max="100" value="80" step="5">
-                        <span class="range-value" id="drum-val">80%</span>
+                        <span class="range-value" id="drum-level-val">80%</span>
                     </div>
                 </div>
             </div>
@@ -554,7 +554,7 @@
             <div class="section">
                 <h2>Step 4: Generate</h2>
                 <div class="button-group">
-                    <button class="btn-primary" onclick="generateMIDI()">
+                    <button class="btn-primary" onclick="generateMIDI(event)">
                         <span id="buttonText">🎹 Generate & Download MIDI</span>
                     </button>
                 </div>
@@ -730,10 +730,10 @@
             return melody;
         }
 
-        function switchGenre(genre) {
+        function switchGenre(evt, genre) {
             currentGenre = genre;
             document.querySelectorAll('.genre-tab').forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
+            evt.target.classList.add('active');
             document.querySelectorAll('.genre-config').forEach(config => config.classList.remove('active'));
             document.getElementById(`${genre}-config`).classList.add('active');
         }
@@ -794,6 +794,16 @@
                         noteDuration >>= 7;
                     }
                     trackData.push(...vlq);
+                    
+                    let noteOffDelta = note.duration;
+                    vlq = [];
+                    vlq[0] = noteOffDelta & 0x7f;
+                    noteOffDelta >>= 7;
+                    while (noteOffDelta > 0) {
+                        vlq.unshift((noteOffDelta & 0x7f) | 0x80);
+                        noteOffDelta >>= 7;
+                    }
+                    trackData.push(...vlq);
                     trackData.push(0x80, note.note, 0x40);
                     lastTime += note.duration;
                 }
@@ -809,9 +819,9 @@
             return new Uint8Array(data);
         }
 
-        function generateMIDI() {
+        function generateMIDI(evt) {
             const statusDiv = document.getElementById('status');
-            const button = event.target;
+            const button = evt.target.closest('button');
             
             try {
                 statusDiv.className = 'status info';
