@@ -358,7 +358,8 @@ function buildSelectedChordTrack(chordSpans){
   return notes;
 }
 
-function rockTracks(barChords,barSections,rng){
+function rockTracks(barChords,barSections,rng) {
+  const safeRng = typeof rng === 'function' ? rng : rng32(7);
   const drums=[],bass=[],harmony=[],lead=[];
   for(let b=0;b<barChords.length;b++){
     const ch=barChords[b], c=classify(barSections[b]), t=b*BAR;
@@ -370,12 +371,13 @@ function rockTracks(barChords,barSections,rng){
     const power=[midiAt(ch.root,50),midiAt((ch.root+7)%12,57)];
     for(let i=0;i<8;i++)power.forEach(n=>addNote(harmony,t+i*PPQ/2,PPQ*.34,n,c.chorus?98:80,2));
     const pent=ch.minor?[0,3,5,7,10]:[0,2,4,7,9];
-    [0,.5,1.5,2.5,3.5].forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.38,midiAt((ch.root+pent[(i+Math.floor(rng()*pent.length))%pent.length])%12,72),84,3));
+    [0,.5,1.5,2.5,3.5].forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.38,midiAt((ch.root+pent[(i+Math.floor(safeRng()*pent.length))%pent.length])%12,72),84,3));
   }
   return {drums,bass,harmony,lead};
 }
 
-function popTracks(barChords,barSections,rng){
+function popTracks(barChords,barSections,rng) {
+  const safeRng = typeof rng === 'function' ? rng : rng32(7);
   const drums=[],bass=[],harmony=[],lead=[];
   for(let b=0;b<barChords.length;b++){
     const ch=barChords[b], c=classify(barSections[b]), t=b*BAR;
@@ -387,21 +389,5 @@ function popTracks(barChords,barSections,rng){
     const chord=voicedChord(ch,60,4);
     (c.chorus?[0,2]:[0]).forEach(beat=>chord.forEach(n=>addNote(harmony,t+beat*PPQ,c.chorus?PPQ*1.75:PPQ*3.75,n,c.chorus?80:64,2)));
     const scale=ch.minor?[0,2,3,5,7,8,10]:[0,2,4,5,7,9,11];
-    (c.chorus?[0,.75,1.5,2.5,3.25]:[0,1,2.5,3.25]).forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.55,midiAt((ch.root+scale[(i*2+Math.floor(rng()*3))%scale.length])%12,72),82,3));
+    (c.chorus?[0,.75,1.5,2.5,3.25]:[0,1,2.5,3.25]).forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.55,midiAt((ch.root+scale[(i*2+Math.floor(safeRng()*3))%scale.length])%12,72),82,3));
   }
-  return {drums,bass,harmony,lead};
-}
-
-function electronicTracks(barChords,barSections,rng){
-  const drums=[],bass=[],harmony=[],lead=[];
-  for(let b=0;b<barChords.length;b++){
-    const ch=barChords[b], c=classify(barSections[b]), t=b*BAR;
-    for(let i=0;i<4;i++)addNote(drums,t+i*PPQ,60,36,c.chorus?118:106,9);
-    [1,3].forEach(x=>addNote(drums,t+x*PPQ,70,39,96,9));
-    for(let i=0;i<16;i++)addNote(drums,t+i*PPQ/4,30,i%4===2?46:42,52+(i%4===0?16:0),9);
-    const root=midiAt(ch.bass,36);
-    (c.chorus?[.5,1.5,2.5,3.5]:[.5,2.5]).forEach((beat,i)=>addNote(bass,t+beat*PPQ,PPQ*.36,i%2?root+12:root,100,1));
-    const chord=voicedChord(ch,62,4);
-    (c.chorus?[.5,1.5,2.5,3.5]:[1.5,3.5]).forEach(beat=>chord.forEach(n=>addNote(harmony,t+beat*PPQ,PPQ*.3,n,82,2)));
-    for(let i=0;i<8;i++){
-      const iv=ch.ints[(i+b)%ch.ints.length]+(i>=4?12:0);
