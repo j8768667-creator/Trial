@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Chord Arranger Pro v4.4</title>
+<title>Chord Arranger Pro v4.5</title>
 <style>
 :root{--bg:#f6f7fb;--panel:#fff;--ink:#1b1f24;--muted:#667085;--accent:#4f46e5;--accent2:#eef2ff;--border:#dfe3ea;--ok:#177245;--err:#a52a2a}
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
@@ -18,7 +18,7 @@ label{display:block;font-weight:700;margin:12px 0 6px}input,select,textarea,butt
 <body>
 <div class="wrap">
 <span class="badge">Validated multi-track MIDI generator</span>
-<h1>Chord Arranger Pro <span style="font-size:14px;font-weight:500;color:var(--muted)">v4.4</span></h1>
+<h1>Chord Arranger Pro <span style="font-size:14px;font-weight:500;color:var(--muted)">v4.5</span></h1>
 <div class="sub">Distinct genre engines, reliable chord durations, separate chord-guide track and deterministic variations.</div>
 <div class="grid">
 <section class="card">
@@ -112,7 +112,7 @@ const QUAL={
 const PRESETS={
  rock:{tempo:124,bassProgram:34,harmonyProgram:30,leadProgram:29,swing:0},pop:{tempo:110,bassProgram:33,harmonyProgram:25,leadProgram:81,swing:0},jazz:{tempo:92,bassProgram:32,harmonyProgram:0,leadProgram:66,swing:.16},blues:{tempo:104,bassProgram:33,harmonyProgram:27,leadProgram:28,swing:.18},funk:{tempo:102,bassProgram:36,harmonyProgram:28,leadProgram:65,swing:.04},reggae:{tempo:82,bassProgram:33,harmonyProgram:16,leadProgram:56,swing:0},house:{tempo:124,bassProgram:38,harmonyProgram:89,leadProgram:80,swing:0},ambient:{tempo:70,bassProgram:38,harmonyProgram:91,leadProgram:98,swing:0}
 };
-let arrangement=null,audioCtx=null,activeNodes=[],previewTimer=null,noiseBuf=null;
+let arrangement=null,audioCtx=null,activeNodes=[],previewTimer=null,previewScheduler=null,noiseBuf=null;
 const $=id=>document.getElementById(id), clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 function rng32(seed){let a=seed>>>0;return()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
 function pcOf(s){const m=/^([A-Ga-g])([#b]?)/.exec(s);if(!m)throw Error(`Invalid note: ${s}`);return(NOTE[m[1].toUpperCase()]+(m[2]==="#"?1:m[2]==="b"?-1:0)+12)%12}
@@ -257,10 +257,47 @@ function midiBytes(a){const p=PRESETS[a.style],chunks=[trackChunk("Conductor",nu
 function ensureAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==="suspended")audioCtx.resume();return audioCtx}function getNoiseBuffer(ctx){if(!noiseBuf){noiseBuf=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}return noiseBuf}function midiToFreq(p){return 440*2**((p-69)/12)}
 function scheduleTone(ctx,master,when,dur,freq,vel,wave){const o=ctx.createOscillator(),g=ctx.createGain();o.type=wave;o.frequency.value=freq;const peak=clamp(vel/127,.05,1)*.18,t1=when+Math.max(.04,dur);g.gain.setValueAtTime(0,when);g.gain.linearRampToValueAtTime(peak,when+.008);g.gain.exponentialRampToValueAtTime(.0001,t1);o.connect(g);g.connect(master);o.start(when);o.stop(t1+.02);activeNodes.push(o)}
 function scheduleDrum(ctx,master,when,pitch,vel){const v=vel/127;if(pitch===36){const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.setValueAtTime(145,when);o.frequency.exponentialRampToValueAtTime(48,when+.11);g.gain.setValueAtTime(v*.8,when);g.gain.exponentialRampToValueAtTime(.001,when+.17);o.connect(g);g.connect(master);o.start(when);o.stop(when+.19);activeNodes.push(o);return}const src=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();src.buffer=getNoiseBuffer(ctx);f.type=pitch===38?"bandpass":"highpass";f.frequency.value=pitch===38?1800:6000;const len=pitch===46||pitch===49?.18:.06;g.gain.setValueAtTime(v*.45,when);g.gain.exponentialRampToValueAtTime(.001,when+len);src.connect(f);f.connect(g);g.connect(master);src.start(when);src.stop(when+len+.02);activeNodes.push(src)}
-function setPreviewButton(on){$("preview").textContent=on?"■ Stop":"▶ Preview";$("preview").dataset.playing=on?"1":"0"}function stopPreview(){if(audioCtx){const now=audioCtx.currentTime;activeNodes.forEach(n=>{try{n.stop(now)}catch{}})}activeNodes=[];if(previewTimer)clearTimeout(previewTimer);previewTimer=null;setPreviewButton(false)}
+function setPreviewButton(on){$("preview").textContent=on?"■ Stop":"▶ Preview";$("preview").dataset.playing=on?"1":"0"}function stopPreview(){if(audioCtx){const now=audioCtx.currentTime;activeNodes.forEach(n=>{try{n.stop(now)}catch{}})}activeNodes=[];if(previewTimer)clearTimeout(previewTimer);if(previewScheduler)clearInterval(previewScheduler);previewTimer=null;previewScheduler=null;setPreviewButton(false)}
 function render(a,msg="Generated."){arrangement=a;$("output").textContent=summaryLines(a);const total=Object.values(a.tracks).reduce((n,x)=>n+x.length,0);$("stats").textContent=`${total.toLocaleString()} note events · ${a.bars} bars`;$("status").className="status ok";$("status").textContent=msg;$("progressFill").style.width="100%";setTimeout(()=>$("progressFill").style.width="0%",350)}
 function generate(){stopPreview();try{render(buildArrangement(),"Generated successfully.")}catch(e){$("status").className="status err";$("status").textContent=`Error: ${e.message}`}}
-function playPreview(){stopPreview();try{const a=buildArrangement();render(a,"Previewing…");const ctx=ensureAudio(),master=ctx.createGain();master.gain.value=.28;master.connect(ctx.destination);const spt=60/(a.tempo*PPQ),start=ctx.currentTime+.08,waves={bass:"triangle",harmony:a.style==="rock"?"square":"triangle",lead:a.style==="ambient"?"sine":"sawtooth",chords:"sine"};for(const name of ["drums","bass","harmony","lead","chords"]){const id=name==="chords"?"chordsTrack":name;if(!$(id).checked)continue;for(const n of a.tracks[name]){const when=start+n.tick*spt,dur=n.dur*spt;if(name==="drums")scheduleDrum(ctx,master,when,n.pitch,n.vel);else scheduleTone(ctx,master,when,dur,midiToFreq(n.pitch),n.vel,waves[name])}}setPreviewButton(true);previewTimer=setTimeout(()=>{stopPreview();$("status").textContent="Preview finished."},a.bars*BAR*spt*1000+250)}catch(e){$("status").className="status err";$("status").textContent=`Error: ${e.message}`}}
+function playPreview(){
+  stopPreview();
+  try{
+    const a=buildArrangement();
+    render(a,"Previewing…");
+    const ctx=ensureAudio(),master=ctx.createGain();
+    master.gain.value=.28;master.connect(ctx.destination);
+    const spt=60/(a.tempo*PPQ),start=ctx.currentTime+.12;
+    const waves={bass:"triangle",harmony:a.style==="rock"?"square":"triangle",lead:a.style==="ambient"?"sine":"sawtooth",chords:"sine"};
+    const events=[];
+    for(const name of ["drums","bass","harmony","lead","chords"]){
+      const id=name==="chords"?"chordsTrack":name;
+      if(!$(id).checked)continue;
+      for(const n of a.tracks[name])events.push({name,n,time:start+n.tick*spt});
+    }
+    events.sort((x,y)=>x.time-y.time||x.n.pitch-y.n.pitch);
+    let index=0;
+    const lookAhead=.18;
+    const scheduleWindow=()=>{
+      const horizon=ctx.currentTime+lookAhead;
+      while(index<events.length&&events[index].time<=horizon){
+        const e=events[index++],n=e.n;
+        const when=Math.max(e.time,ctx.currentTime+.004),dur=n.dur*spt;
+        if(e.name==="drums")scheduleDrum(ctx,master,when,n.pitch,n.vel);
+        else scheduleTone(ctx,master,when,dur,midiToFreq(n.pitch),n.vel,waves[e.name]);
+      }
+      if(index>=events.length&&ctx.currentTime>start+a.bars*BAR*spt+.1){
+        stopPreview();$("status").textContent="Preview finished.";
+      }
+    };
+    scheduleWindow();
+    previewScheduler=setInterval(scheduleWindow,25);
+    setPreviewButton(true);
+    previewTimer=setTimeout(()=>{stopPreview();$("status").textContent="Preview finished."},a.bars*BAR*spt*1000+700);
+  }catch(e){
+    $("status").className="status err";$("status").textContent=`Error: ${e.message}`;
+  }
+}
 function download(){stopPreview();try{const a=buildArrangement(),bytes=midiBytes(a);render(a,"MIDI exported.");const blob=new Blob([bytes],{type:"audio/midi"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${a.style}-${a.key.name.replace(/[^a-z0-9]+/gi,"-").toLowerCase()}-${a.tempo}bpm-seed${a.seed}.mid`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}catch(e){$("status").className="status err";$("status").textContent=`Error: ${e.message}`}}
 $("style").addEventListener("change",e=>{$("tempo").value=PRESETS[e.target.value].tempo;generate()});$("randomize").addEventListener("click",()=>{$("seed").value=Math.floor(Math.random()*1000000);generate()});$("surpriseMe").addEventListener("click",()=>{const p=[...document.querySelectorAll("#progressionPreset option[data-chords]")],styles=[...$("style").options];$("chords").value=p[Math.floor(Math.random()*p.length)].dataset.chords;$("style").value=styles[Math.floor(Math.random()*styles.length)].value;$("tempo").value=PRESETS[$("style").value].tempo+Math.floor(Math.random()*17)-8;$("seed").value=Math.floor(Math.random()*1000000);generate()});$("progressionPreset").addEventListener("change",e=>{const o=e.target.selectedOptions[0];if(o?.dataset.chords){$("chords").value=o.dataset.chords;generate()}e.target.selectedIndex=0});$("generate").onclick=generate;$("download").onclick=download;$("preview").onclick=()=>$("preview").dataset.playing==="1"?stopPreview():playPreview();
 let debounce;["chords","structure","key"].forEach(id=>$(id).addEventListener("input",()=>{clearTimeout(debounce);debounce=setTimeout(generate,650)}));document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();generate()}if(e.key===" "&&!e.target.matches("input,textarea,select,button")){e.preventDefault();$("preview").click()}});generate();
