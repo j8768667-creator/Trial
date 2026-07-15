@@ -29,7 +29,7 @@ button:active{transform:scale(0.98)}
 .status{margin-top:12px;color:var(--muted);min-height:22px;font-weight:500}
 .status.ok{color:var(--ok)}
 .status.err{color:var(--err)}
-.sequence{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1.55;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;padding:14px;border-radius:14px;min-height:260px;overflow:auto}
+.sequence{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1.55;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;padding:14px;border-radius:14px;min-height:260px;max-height:400px;overflow:auto}
 .help{font-size:13px;color:var(--muted);line-height:1.5}
 .badge{display:inline-block;background:var(--accent2);color:var(--accent);padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:8px}
 .checks{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
@@ -54,84 +54,84 @@ button:active{transform:scale(0.98)}
 <option value="">Load a preset…</option>
 
 <optgroup label="Pop">
-<option data-chords="C | G | Am | F">Axis Progression — I–V–vi–IV</option>
-<option data-chords="C | Am | F | G">50s Progression — I–vi–IV–V</option>
-<option data-chords="Am | F | C | G">Minor Pop — vi–IV–I–V</option>
-<option data-chords="C | Em | Am | F">Emotional Pop — I–iii–vi–IV</option>
-<option data-chords="G | D | Em | C">Anthemic Pop in G</option>
-<option data-chords="D | A | Bm | G">Anthemic Pop in D</option>
-<option data-chords="C | G/B | Am | F">Descending Bass Pop</option>
-<option data-chords="Am | C | G | D">Indie Pop Lift</option>
+<option value="C | G | Am | F">Axis Progression — I–V–vi–IV</option>
+<option value="C | Am | F | G">50s Progression — I–vi–IV–V</option>
+<option value="Am | F | C | G">Minor Pop — vi–IV–I–V</option>
+<option value="C | Em | Am | F">Emotional Pop — I–iii–vi–IV</option>
+<option value="G | D | Em | C">Anthemic Pop in G</option>
+<option value="D | A | Bm | G">Anthemic Pop in D</option>
+<option value="C | G/B | Am | F">Descending Bass Pop</option>
+<option value="Am | C | G | D">Indie Pop Lift</option>
 </optgroup>
 
 <optgroup label="Rock &amp; Alternative">
-<option data-chords="A | D | E | D">Classic Rock — I–IV–V–IV</option>
-<option data-chords="E | G | A | E">Blues Rock Riff</option>
-<option data-chords="Em | C | G | D">Alternative Rock</option>
-<option data-chords="Am | G | F | G">Arena Rock Minor</option>
-<option data-chords="D | C | G | D">Southern Rock</option>
-<option data-chords="E5 | A5 | B5 | A5">Power Chord Rock</option>
-<option data-chords="Bm | G | D | A">Modern Rock</option>
+<option value="A | D | E | D">Classic Rock — I–IV–V–IV</option>
+<option value="E | G | A | E">Blues Rock Riff</option>
+<option value="Em | C | G | D">Alternative Rock</option>
+<option value="Am | G | F | G">Arena Rock Minor</option>
+<option value="D | C | G | D">Southern Rock</option>
+<option value="E5 | A5 | B5 | A5">Power Chord Rock</option>
+<option value="Bm | G | D | A">Modern Rock</option>
 </optgroup>
 
 <optgroup label="Blues">
-<option data-chords="E7(4) | A7(2) | E7(2) | B7 | A7 | E7 | B7">12-Bar Blues in E</option>
-<option data-chords="A7(4) | D7(2) | A7(2) | E7 | D7 | A7 | E7">12-Bar Blues in A</option>
-<option data-chords="C7 | F7 | C7 | G7 | F7 | C7">Quick Blues</option>
-<option data-chords="Am7 | D7 | Am7 | E7">Minor Blues Vamp</option>
+<option value="E7(4) | A7(2) | E7(2) | B7 | A7 | E7 | B7">12-Bar Blues in E</option>
+<option value="A7(4) | D7(2) | A7(2) | E7 | D7 | A7 | E7">12-Bar Blues in A</option>
+<option value="C7 | F7 | C7 | G7 | F7 | C7">Quick Blues</option>
+<option value="Am7 | D7 | Am7 | E7">Minor Blues Vamp</option>
 </optgroup>
 
 <optgroup label="Jazz &amp; Soul">
-<option data-chords="Dm7 | G7 | Cmaj7 | Cmaj7">ii–V–I in C</option>
-<option data-chords="Am7 | Dm7 | G7 | Cmaj7">vi–ii–V–I</option>
-<option data-chords="Cmaj7 | A7 | Dm7 | G7">Rhythm Changes Turnaround</option>
-<option data-chords="Dm7 | G7 | Em7 | A7">Jazz Cycle</option>
-<option data-chords="Cmaj7 | Em7 | Am7 | Gm7 | C7 | Fmaj7">Soul Progression</option>
-<option data-chords="Fmaj7 | Gm7 | Am7 | Gm7">Neo-Soul Loop</option>
-<option data-chords="Am9 | Dm9 | G9 | Cmaj9">Jazz 9ths</option>
+<option value="Dm7 | G7 | Cmaj7 | Cmaj7">ii–V–I in C</option>
+<option value="Am7 | Dm7 | G7 | Cmaj7">vi–ii–V–I</option>
+<option value="Cmaj7 | A7 | Dm7 | G7">Rhythm Changes Turnaround</option>
+<option value="Dm7 | G7 | Em7 | A7">Jazz Cycle</option>
+<option value="Cmaj7 | Em7 | Am7 | Gm7 | C7 | Fmaj7">Soul Progression</option>
+<option value="Fmaj7 | Gm7 | Am7 | Gm7">Neo-Soul Loop</option>
+<option value="Am9 | Dm9 | G9 | Cmaj9">Jazz 9ths</option>
 </optgroup>
 
 <optgroup label="Electronic &amp; House">
-<option data-chords="Cm | Ab | Eb | Bb">House Loop — i–VI–III–VII</option>
-<option data-chords="Fm | Db | Ab | Eb">Deep House</option>
-<option data-chords="Am | F | C | G">Festival EDM</option>
-<option data-chords="Em | C | G | D">Progressive Electronic</option>
-<option data-chords="Dm | Bb | F | C">Melodic House</option>
-<option data-chords="Am7 | Fmaj7 | Cmaj7 | G6">Chill Electronic</option>
+<option value="Cm | Ab | Eb | Bb">House Loop — i–VI–III–VII</option>
+<option value="Fm | Db | Ab | Eb">Deep House</option>
+<option value="Am | F | C | G">Festival EDM</option>
+<option value="Em | C | G | D">Progressive Electronic</option>
+<option value="Dm | Bb | F | C">Melodic House</option>
+<option value="Am7 | Fmaj7 | Cmaj7 | G6">Chill Electronic</option>
 </optgroup>
 
 <optgroup label="Lo-fi &amp; R&amp;B">
-<option data-chords="Dm9 | G9 | Cmaj9(2)">Lo-fi ii–V–I</option>
-<option data-chords="Cmaj7 | Bm7 | Em7 | Am7">Late-Night Lo-fi</option>
-<option data-chords="Am7 | Em7 | Dm7 | Em7">Mellow R&amp;B</option>
-<option data-chords="Fmaj7 | Em7 | Dm7 | Cmaj7">Descending Lo-fi</option>
-<option data-chords="Cmaj9 | Am9 | Dm9 | G9">Warm Jazz-Hop</option>
+<option value="Dm9 | G9 | Cmaj9(2)">Lo-fi ii–V–I</option>
+<option value="Cmaj7 | Bm7 | Em7 | Am7">Late-Night Lo-fi</option>
+<option value="Am7 | Em7 | Dm7 | Em7">Mellow R&amp;B</option>
+<option value="Fmaj7 | Em7 | Dm7 | Cmaj7">Descending Lo-fi</option>
+<option value="Cmaj9 | Am9 | Dm9 | G9">Warm Jazz-Hop</option>
 </optgroup>
 
 <optgroup label="Funk &amp; Reggae">
-<option data-chords="Am7(8)">Funk One-Chord Vamp</option>
-<option data-chords="E9(4) | A9(4)">Two-Chord Funk</option>
-<option data-chords="Dm7 | G7 | Dm7 | A7">Funk Turnaround</option>
-<option data-chords="Am | G | F | E">Reggae Minor Skank</option>
-<option data-chords="C | G | Am | F">Reggae Pop</option>
-<option data-chords="G | C | D | C">Roots Reggae</option>
+<option value="Am7(8)">Funk One-Chord Vamp</option>
+<option value="E9(4) | A9(4)">Two-Chord Funk</option>
+<option value="Dm7 | G7 | Dm7 | A7">Funk Turnaround</option>
+<option value="Am | G | F | E">Reggae Minor Skank</option>
+<option value="C | G | Am | F">Reggae Pop</option>
+<option value="G | C | D | C">Roots Reggae</option>
 </optgroup>
 
 <optgroup label="Country &amp; Folk">
-<option data-chords="G | C | G | D">Classic Country</option>
-<option data-chords="D | G | D | A">Country Two-Step</option>
-<option data-chords="C | F | C | G">Folk Standard</option>
-<option data-chords="Am | G | C | F">Acoustic Folk</option>
-<option data-chords="G | D/F# | Em | C">Country Ballad</option>
-<option data-chords="C | G | Am | Em | F | C | F | G">Pachelbel / Folk Canon</option>
+<option value="G | C | G | D">Classic Country</option>
+<option value="D | G | D | A">Country Two-Step</option>
+<option value="C | F | C | G">Folk Standard</option>
+<option value="Am | G | C | F">Acoustic Folk</option>
+<option value="G | D/F# | Em | C">Country Ballad</option>
+<option value="C | G | Am | Em | F | C | F | G">Pachelbel / Folk Canon</option>
 </optgroup>
 
 <optgroup label="Cinematic &amp; Classical">
-<option data-chords="Am | F | C | G">Cinematic Minor</option>
-<option data-chords="Dm | Bb | F | C">Epic Fantasy</option>
-<option data-chords="Cm | Ab | Eb | G">Dramatic Minor</option>
-<option data-chords="Em | C | Am | B7">Tense Classical Minor</option>
-<option data-chords="C | G/B | Am | Em/G | F | C/E | Dm | G">Classical Descending Bass</option>
+<option value="Am | F | C | G">Cinematic Minor</option>
+<option value="Dm | Bb | F | C">Epic Fantasy</option>
+<option value="Cm | Ab | Eb | G">Dramatic Minor</option>
+<option value="Em | C | Am | B7">Tense Classical Minor</option>
+<option value="C | G/B | Am | Em/G | F | C/E | Dm | G">Classical Descending Bass</option>
 </optgroup>
 </select>
 
@@ -240,6 +240,7 @@ let arrangement=null;
 
 function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
 function rng32(seed){let a=seed>>>0;return()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+
 function pcOf(s){
   const m=/^([A-Ga-g])([#b]?)/.exec(s);
   if(!m)throw Error("Invalid note "+s);
@@ -358,9 +359,8 @@ function buildSelectedChordTrack(chordSpans){
   return notes;
 }
 
-function rockTracks(barChords,barSections,rng) {
-  const safeRng = typeof rng === 'function' ? rng : rng32(7);
-  const drums=[],bass=[],harmony=[],lead=[];
+function rockTracks(barChords,barSections,rng){
+  const drums=[],bass=[],harmony=[],lead[];
   for(let b=0;b<barChords.length;b++){
     const ch=barChords[b], c=classify(barSections[b]), t=b*BAR;
     [0,2].forEach(x=>addNote(drums,t+x*PPQ,70,36,c.chorus?116:104,9));
@@ -371,14 +371,13 @@ function rockTracks(barChords,barSections,rng) {
     const power=[midiAt(ch.root,50),midiAt((ch.root+7)%12,57)];
     for(let i=0;i<8;i++)power.forEach(n=>addNote(harmony,t+i*PPQ/2,PPQ*.34,n,c.chorus?98:80,2));
     const pent=ch.minor?[0,3,5,7,10]:[0,2,4,7,9];
-    [0,.5,1.5,2.5,3.5].forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.38,midiAt((ch.root+pent[(i+Math.floor(safeRng()*pent.length))%pent.length])%12,72),84,3));
+    [0,.5,1.5,2.5,3.5].forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.38,midiAt((ch.root+pent[(i+Math.floor(rng()*pent.length))%pent.length])%12,72),84,3));
   }
   return {drums,bass,harmony,lead};
 }
 
-function popTracks(barChords,barSections,rng) {
-  const safeRng = typeof rng === 'function' ? rng : rng32(7);
-  const drums=[],bass=[],harmony=[],lead=[];
+function popTracks(barChords,barSections,rng){
+  const drums=[],bass=[],harmony=[],lead[];
   for(let b=0;b<barChords.length;b++){
     const ch=barChords[b], c=classify(barSections[b]), t=b*BAR;
     [0,2].forEach(x=>addNote(drums,t+x*PPQ,70,36,c.chorus?110:98,9));
@@ -389,5 +388,70 @@ function popTracks(barChords,barSections,rng) {
     const chord=voicedChord(ch,60,4);
     (c.chorus?[0,2]:[0]).forEach(beat=>chord.forEach(n=>addNote(harmony,t+beat*PPQ,c.chorus?PPQ*1.75:PPQ*3.75,n,c.chorus?80:64,2)));
     const scale=ch.minor?[0,2,3,5,7,8,10]:[0,2,4,5,7,9,11];
-    (c.chorus?[0,.75,1.5,2.5,3.25]:[0,1,2.5,3.25]).forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.55,midiAt((ch.root+scale[(i*2+Math.floor(safeRng()*3))%scale.length])%12,72),82,3));
+    (c.chorus?[0,.75,1.5,2.5,3.25]:[0,1,2.5,3.25]).forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.55,midiAt((ch.root+scale[(i*2+Math.floor(rng()*3))%scale.length])%12,72),82,3));
   }
+  return {drums,bass,harmony,lead};
+}
+
+function electronicTracks(barChords,barSections,rng){
+  const drums=[],bass=[],harmony=[],lead[];
+  for(let b=0;b<barChords.length;b++){
+    const ch=barChords[b], c=classify(barSections[b]), t=b*BAR;
+    for(let i=0;i<4;i++)addNote(drums,t+i*PPQ,60,36,c.chorus?118:106,9);
+    [1,3].forEach(x=>addNote(drums,t+x*PPQ,70,39,96,9));
+    for(let i=0;i<16;i++)addNote(drums,t+i*PPQ/4,30,i%4===2?46:42,52+(i%4===0?16:0),9);
+    const root=midiAt(ch.bass,36);
+    (c.chorus?[.5,1.5,2.5,3.5]:[.5,2.5]).forEach((beat,i)=>addNote(bass,t+beat*PPQ,PPQ*.36,i%2?root+12:root,100,1));
+    const chord=voicedChord(ch,62,4);
+    (c.chorus?[.5,1.5,2.5,3.5]:[1.5,3.5]).forEach(beat=>chord.forEach(n=>addNote(harmony,t+beat*PPQ,PPQ*.3,n,82,2)));
+    for(let i=0;i<8;i++){
+      const iv=ch.ints[(i+b)%ch.ints.length]+(i>=4?12:0);
+      addNote(lead,t+i*PPQ/2,PPQ*.25,midiAt((ch.root+iv)%12,76),78,3);
+    }
+  }
+  return {drums,bass,harmony,lead};
+}
+
+function countryTracks(barChords,barSections,rng){
+  const drums=[],bass=[],harmony=[],lead[];
+  for(let b=0;b<barChords.length;b++){
+    const ch=barChords[b], c=classify(barSections[b]), t=b*BAR;
+    [0,2].forEach(x=>addNote(drums,t+x*PPQ,70,36,c.chorus?106:96,9));
+    [1,3].forEach(x=>addNote(drums,t+x*PPQ,80,40,102,9));
+    for(let i=0;i<8;i++)addNote(drums,t+i*PPQ/2,35,42,60,9);
+    const root=midiAt(ch.bass,40), fifth=midiAt((ch.root+7)%12,43);
+    for(let i=0;i<4;i++)addNote(bass,t+i*PPQ,PPQ*.84,i%2?fifth:root,88,1);
+    const chord=voicedChord(ch,54,4);
+    (c.chorus?[0,.5,1,1.5,2,2.5,3,3.5]:[0,1,2,3]).forEach(beat=>chord.forEach(n=>addNote(harmony,t+beat*PPQ,PPQ*.28,n,c.chorus?84:70,2)));
+    const scale=ch.minor?[0,3,5,7,10]:[0,2,4,7,9];
+    [0,1.5,2,3.5].forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.42,midiAt((ch.root+scale[(i+Math.floor(rng()*scale.length))%scale.length])%12,74),80,3));
+  }
+  return {drums,bass,harmony,lead};
+}
+
+function metalTracks(barChords,barSections,rng){
+  const drums=[],bass=[],harmony=[],lead[];
+  for(let b=0;b<barChords.length;b++){
+    const ch=barChords[b], c=classify(barSections[b]), t=b*BAR;
+    for(let i=0;i<16;i++)addNote(drums,t+i*PPQ/4,38,36,c.chorus?120:108,9);
+    [1,3].forEach(x=>addNote(drums,t+x*PPQ,70,38,116,9));
+    for(let i=0;i<8;i++)addNote(drums,t+i*PPQ/2,30,42,64,9);
+    const root=midiAt(ch.bass,36);
+    const gallop=[0,.25,.5,1,1.25,1.5,2,2.25,2.5,3,3.25,3.5];
+    gallop.forEach((beat,i)=>addNote(bass,t+beat*PPQ,PPQ*.19,root,96+(i%3===0?8:0),1));
+    const power=[midiAt(ch.root,45),midiAt((ch.root+7)%12,52),midiAt(ch.root,57)];
+    gallop.forEach(beat=>power.forEach(n=>addNote(harmony,t+beat*PPQ,PPQ*.17,n,c.chorus?102:90,2)));
+    const scale=[0,1,3,5,7,8,10];
+    [0,.5,1,1.5,2,2.5,3,3.5].forEach((beat,i)=>addNote(lead,t+beat*PPQ,PPQ*.32,midiAt((ch.root+scale[(i+Math.floor(rng()*scale.length))%scale.length])%12,76),88,3));
+  }
+  return {drums,bass,harmony,lead};
+}
+
+function funkTracks(barChords,barSections,rng){
+  const drums=[],bass=[],harmony=[],lead[];
+  for(let b=0;b<barChords.length;b++){
+    const ch=barChords[b], c=classify(barSections[b]), t=b*BAR;
+    [0,1.75,2.5].forEach(x=>addNote(drums,t+x*PPQ,55,36,c.chorus?112:100,9));
+    [1,3].forEach(x=>addNote(drums,t+x*PPQ,70,38,106,9));
+    for(let i=0;i<16;i++)addNote(drums,t+i*PPQ/4,24,42,i%4===0?70:44,9);
+    const root=midiAt(ch.bass
