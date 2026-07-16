@@ -3,13 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-
 <title>MIDI Arranger Studio</title>
-
 <style>
-
 :root{
-
 --bg:#f4f6fb;
 --panel:white;
 --border:#dde3ec;
@@ -17,94 +13,57 @@
 --accent2:#eef2ff;
 --text:#182230;
 --muted:#667085;
-
 }
-
 *{
 box-sizing:border-box;
 margin:0;
 padding:0;
-font-family:
--apple-system,
-BlinkMacSystemFont,
-Segoe UI,
-sans-serif;
+font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;
 }
-
 body{
-
 background:var(--bg);
 padding:24px;
-
 }
-
 .wrap{
-
 max-width:1200px;
 margin:auto;
-
 }
-
 h1{
-
 font-size:42px;
 margin-bottom:8px;
-
 }
-
 .sub{
-
 color:var(--muted);
 margin-bottom:24px;
-
 }
-
 .grid{
-
 display:grid;
 grid-template-columns:420px 1fr;
 gap:20px;
-
 }
-
 .card{
-
 background:var(--panel);
 border:1px solid var(--border);
 border-radius:16px;
 padding:18px;
-
 }
-
 label{
-
 display:block;
 margin-top:14px;
 margin-bottom:6px;
 font-weight:600;
-
 }
-
-input,
-textarea,
-select{
-
+input,textarea,select{
 width:100%;
 padding:12px;
 border-radius:10px;
 border:1px solid var(--border);
-
 }
-
 textarea{
-
 height:90px;
 resize:vertical;
-
 }
-
 button{
-
 padding:12px 16px;
 border:none;
 border-radius:10px;
@@ -112,11 +71,8 @@ cursor:pointer;
 background:var(--accent);
 color:white;
 font-weight:600;
-
 }
-
 .drop{
-
 margin-top:12px;
 padding:40px;
 text-align:center;
@@ -124,380 +80,179 @@ border:3px dashed #cbd5e1;
 border-radius:16px;
 background:#fafcff;
 cursor:pointer;
-
 }
-
 .drop.drag{
-
 background:#eef2ff;
 border-color:var(--accent);
-
 }
-
 .track{
-
 padding:10px;
 border-bottom:1px solid #edf2f7;
-
 }
-
 .track:last-child{
-
 border-bottom:none;
-
 }
-
 pre{
-
 background:#111827;
 color:#d1fae5;
 padding:14px;
 border-radius:10px;
 overflow:auto;
-
 }
-
 </style>
-
 </head>
-
 <body>
-
 <div class="wrap">
-
 <h1>MIDI Arranger Studio</h1>
-
 <div class="sub">
-
 Import a reference MIDI and use it to generate a new arrangement from your own chord progression.
-
 </div>
-
 <div class="grid">
-
 <div class="card">
-
-<div
-id="drop"
-class="drop">
-
+<div id="drop" class="drop">
 <b>Drop MIDI Here</b>
-
 <br><br>
-
 or click to browse
-
-<input
-id="file"
-type="file"
-accept=".mid,.midi"
-hidden>
-
+<input id="file" type="file" accept=".mid,.midi" hidden>
 </div>
-
-<label>
-
-Chord Progression
-
-</label>
-
-<textarea
-id="chords">C | G | Am | F</textarea>
-
-<label>
-
-Key
-
-</label>
-
+<label>Chord Progression</label>
+<textarea id="chords">C | G | Am | F</textarea>
+<label>Key</label>
 <select id="key"></select>
-
 <br><br>
-
-<button
-id="analyse">
-
-Analyse MIDI
-
-</button>
-
+<button id="analyse">Analyse MIDI</button>
 </div>
-
 <div class="card">
-
-<h2>
-
-Reference MIDI
-
-</h2>
-
+<h2>Reference MIDI</h2>
 <br>
-
-<div id="info">
-
-No file loaded.
-
+<div id="info">No file loaded.</div>
+<br>
+<h2>Tracks</h2>
+<br>
+<div id="tracks">No tracks.</div>
+<br>
+<h2>Raw Header</h2>
+<br>
+<pre id="header">No data.</pre>
 </div>
-
-<br>
-
-<h2>
-
-Tracks
-
-</h2>
-
-<br>
-
-<div id="tracks">
-
-No tracks.
-
 </div>
-
-<br>
-
-<h2>
-
-Raw Header
-
-</h2>
-
-<br>
-
-<pre
-id="header">
-
-No data.
-
-</pre>
-
-</div>
-
-</div>
-
 </div>
 
 <script>
 
 const keySelect=document.getElementById("key");
 
-const NOTES=[
-
-"C","C#","D","Eb","E","F",
-"F#","G","Ab","A","Bb","B"
-
-];
+const NOTES=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
 
 for(let i=0;i<12;i++){
-
-const o=document.createElement("option");
-
-o.value=i;
-
-o.textContent=NOTES[i]+" Major";
-
-keySelect.appendChild(o);
-
+    const o=document.createElement("option");
+    o.value=i;
+    o.textContent=NOTES[i]+" Major";
+    keySelect.appendChild(o);
 }
 
 const drop=document.getElementById("drop");
-
 const fileInput=document.getElementById("file");
 
 drop.onclick=()=>fileInput.click();
 
 drop.ondragover=e=>{
-
-e.preventDefault();
-
-drop.classList.add("drag");
-
+    e.preventDefault();
+    drop.classList.add("drag");
 };
 
 drop.ondragleave=()=>{
-
-drop.classList.remove("drag");
-
+    drop.classList.remove("drag");
 };
 
 drop.ondrop=e=>{
-
-e.preventDefault();
-
-drop.classList.remove("drag");
-
-if(e.dataTransfer.files.length){
-
-loadMidi(e.dataTransfer.files[0]);
-
-}
-
+    e.preventDefault();
+    drop.classList.remove("drag");
+    if(e.dataTransfer.files.length){
+        loadMidi(e.dataTransfer.files[0]);
+    }
 };
 
 fileInput.onchange=e=>{
-
-if(e.target.files.length){
-
-loadMidi(e.target.files[0]);
-
-}
-
+    if(e.target.files.length){
+        loadMidi(e.target.files[0]);
+    }
 };
 
 let midiFile=null;
 
 async function loadMidi(file){
-
-const buffer=await file.arrayBuffer();
-
-midiFile=new Uint8Array(buffer);
-
-parseHeader(file.name);
-
+    const buffer=await file.arrayBuffer();
+    midiFile=new Uint8Array(buffer);
+    parseHeader(file.name);
 }
 
 function text(bytes,start,len){
-
-return new TextDecoder().decode(
-
-bytes.slice(start,start+len)
-
-);
-
+    return new TextDecoder().decode(bytes.slice(start,start+len));
 }
 
 function u16(bytes,i){
-
-return (bytes[i]<<8)|bytes[i+1];
-
+    return (bytes[i]<<8)|bytes[i+1];
 }
 
 function u32(bytes,i){
-
-return (
-
-(bytes[i]<<24>>>0)+
-(bytes[i+1]<<16)+
-(bytes[i+2]<<8)+
-bytes[i+3]
-
-);
-
+    return (
+        (bytes[i]<<24>>>0)+
+        (bytes[i+1]<<16)+
+        (bytes[i+2]<<8)+
+        bytes[i+3]
+    );
 }
 
 function parseHeader(filename){
+    if(text(midiFile,0,4)!=="MThd"){
+        alert("Not a MIDI file");
+        return;
+    }
 
-if(text(midiFile,0,4)!=="MThd"){
+    const length=u32(midiFile,4);
+    const format=u16(midiFile,8);
+    const tracks=u16(midiFile,10);
+    const division=u16(midiFile,12);
 
-alert("Not a MIDI file");
+    document.getElementById("info").innerHTML=`
+        <b>${filename}</b>
+        <br><br>
+        Format: ${format}
+        <br>
+        Tracks: ${tracks}
+        <br>
+        PPQ: ${division}
+    `;
 
-return;
+    document.getElementById("header").textContent=JSON.stringify({
+        headerLength:length,
+        format,
+        tracks,
+        division
+    },null,2);
 
+    const list=document.getElementById("tracks");
+    list.innerHTML="";
+
+    for(let i=0;i<tracks;i++){
+        const div=document.createElement("div");
+        div.className="track";
+        div.innerHTML=`
+            <b>Track ${i+1}</b>
+            <br>
+            (Status unknown until parser implemented)
+        `;
+        list.appendChild(div);
+    }
 }
 
-const length=u32(midiFile,4);
-
-const format=u16(midiFile,8);
-
-const tracks=u16(midiFile,10);
-
-const division=u16(midiFile,12);
-
-document.getElementById("info").innerHTML=`
-
-<b>${filename}</b>
-
-<br><br>
-
-Format:
-
-${format}
-
-<br>
-
-Tracks:
-
-${tracks}
-
-<br>
-
-PPQ:
-
-${division}
-
-`;
-
-document.getElementById("header").textContent=
-
-JSON.stringify({
-
-headerLength:length,
-
-format,
-
-tracks,
-
-division
-
-},null,2);
-
-const list=document.getElementById("tracks");
-
-list.innerHTML="";
-
-for(let i=0;i<tracks;i++){
-
-const div=document.createElement("div");
-
-div.className="track";
-
-div.innerHTML=`
-
-<b>Track ${i+1}</b>
-
-<br>
-
-(Status unknown until parser implemented)
-
-`;
-
-list.appendChild(div);
-
-}
-
-}
-
-document.getElementById("analyse").onclick=()=>{
-
-if(!midiFile){
-
-alert("Load a MIDI first.");
-
-return;
-
-}
-
-alert(
-
-"Part 2 will parse every track, instrument, note and event."
-
-);
-
-};
-
-</script>
-
-</body>
-</html>
 /**********************************************************************
  PART 2 – MIDI PARSER
- Add this immediately BELOW the helper functions in Part 1.
 
  This replaces the placeholder parser with a real MIDI parser.
 
  Supported:
-
  ✓ Type 0
  ✓ Type 1
  ✓ Tempo
@@ -508,285 +263,157 @@ alert(
  ✓ Running status
  ✓ Time signature
  ✓ Internal note objects
-
 **********************************************************************/
 
 function readVLQ(bytes,pos){
-
     let value=0;
-
     while(true){
-
         const b=bytes[pos.i++];
-
         value=(value<<7)|(b&0x7F);
-
         if(!(b&0x80))break;
-
     }
-
     return value;
-
 }
 
 function parseTracks(){
-
     let ptr=14;
-
     const tracks=[];
-
     const format=u16(midiFile,8);
-
     const trackCount=u16(midiFile,10);
-
     const division=u16(midiFile,12);
 
     for(let t=0;t<trackCount;t++){
-
         if(text(midiFile,ptr,4)!=="MTrk"){
-
             throw Error("Missing MTrk");
-
         }
 
         const length=u32(midiFile,ptr+4);
-
         const end=ptr+8+length;
-
         let pos={i:ptr+8};
-
         let tick=0;
-
         let runningStatus=0;
 
         let track={
-
             index:t,
-
             name:"Track "+(t+1),
-
             channel:null,
-
             instrument:null,
-
             notes:[],
-
             tempo:[],
-
             timeSignature:null
-
         };
 
         const active={};
 
         while(pos.i<end){
-
             tick+=readVLQ(midiFile,pos);
 
             let status=midiFile[pos.i++];
 
             if(status<0x80){
-
                 pos.i--;
-
                 status=runningStatus;
-
             }else{
-
                 runningStatus=status;
-
             }
 
             /***********************
              META EVENTS
             ************************/
-
             if(status===0xFF){
-
                 const type=midiFile[pos.i++];
-
                 const len=readVLQ(midiFile,pos);
-
                 const data=midiFile.slice(pos.i,pos.i+len);
-
                 pos.i+=len;
 
                 switch(type){
-
                     case 0x03:
-
                         track.name=new TextDecoder().decode(data);
-
                         break;
-
                     case 0x51:
-
                         track.tempo.push({
-
                             tick,
-
-                            mpqn:
-                            (data[0]<<16)|
-                            (data[1]<<8)|
-                            data[2]
-
+                            mpqn:(data[0]<<16)|(data[1]<<8)|data[2]
                         });
-
                         break;
-
                     case 0x58:
-
                         track.timeSignature={
-
                             numerator:data[0],
-
                             denominator:Math.pow(2,data[1])
-
                         };
-
                         break;
-
                 }
-
                 continue;
-
             }
 
             /***********************
              SYSEX
             ************************/
-
             if(status===0xF0||status===0xF7){
-
                 const len=readVLQ(midiFile,pos);
-
                 pos.i+=len;
-
                 continue;
-
             }
 
             /***********************
              MIDI EVENT
             ************************/
-
             const type=status&0xF0;
-
             const channel=status&0x0F;
-
             track.channel=channel;
 
             switch(type){
-
                 case 0xC0:
-
                     track.instrument=midiFile[pos.i++];
-
                     break;
 
                 case 0x80:
                 case 0x90:
-
                     {
-
                         const pitch=midiFile[pos.i++];
-
                         const velocity=midiFile[pos.i++];
-
                         const key=channel+"_"+pitch;
 
                         if(type===0x90&&velocity>0){
-
-                            active[key]={
-
-                                tick,
-
-                                pitch,
-
-                                velocity
-
-                            };
-
+                            active[key]={tick,pitch,velocity};
                         }else{
-
                             if(active[key]){
-
                                 const note=active[key];
-
                                 track.notes.push({
-
                                     tick:note.tick,
-
-                                    duration:
-                                    tick-note.tick,
-
+                                    duration:tick-note.tick,
                                     pitch,
-
-                                    velocity:
-                                    note.velocity,
-
+                                    velocity:note.velocity,
                                     channel
-
                                 });
-
                                 delete active[key];
-
                             }
-
                         }
-
                     }
-
                     break;
 
                 case 0xB0:
-
                     pos.i+=2;
-
                     break;
-
                 case 0xA0:
-
                     pos.i+=2;
-
                     break;
-
                 case 0xD0:
-
                     pos.i++;
-
                     break;
-
                 case 0xE0:
-
                     pos.i+=2;
-
                     break;
-
                 default:
-
                     break;
-
             }
-
         }
 
         tracks.push(track);
-
         ptr=end;
-
     }
 
-    return{
-
-        format,
-
-        division,
-
-        tracks
-
-    };
-
+    return{format,division,tracks};
 }
 
 /********************************************************************
@@ -794,73 +421,31 @@ function parseTracks(){
 ********************************************************************/
 
 function classifyTracks(song){
-
     for(const t of song.tracks){
-
         const notes=t.notes;
 
-        const avg=
+        const avg=notes.reduce((a,n)=>a+n.pitch,0)/Math.max(1,notes.length);
 
-        notes.reduce(
-
-            (a,n)=>a+n.pitch,
-
-            0
-
-        )/
-
-        Math.max(1,notes.length);
-
-        const poly=
-
-        notes.length<2?
-
-        0:
-
-        notes.filter(
-
-            (n,i)=>
-
-            i&&
-
-            n.tick<notes[i-1].tick+
-
-            notes[i-1].duration
-
-        ).length/
-
-        notes.length;
+        const poly=notes.length<2?0:
+            notes.filter((n,i)=>i&&n.tick<notes[i-1].tick+notes[i-1].duration).length/notes.length;
 
         let role="Unknown";
 
         if(t.channel===9){
-
             role="Drums";
-
         }
-
         else if(avg<48){
-
             role="Bass";
-
         }
-
         else if(poly>0.30){
-
             role="Harmony";
-
         }
-
         else{
-
             role="Melody";
-
         }
 
         t.role=role;
-
     }
-
 }
 
 /********************************************************************
@@ -868,70 +453,44 @@ function classifyTracks(song){
 ********************************************************************/
 
 function showTracks(song){
-
     const div=document.getElementById("tracks");
-
     div.innerHTML="";
 
     song.tracks.forEach(track=>{
-
         const row=document.createElement("div");
-
         row.className="track";
-
         row.innerHTML=`
-
-        <b>${track.name}</b><br>
-
-        ${track.role}<br>
-
-        Notes:
-        ${track.notes.length}<br>
-
-        Instrument:
-        ${track.instrument??"-"}<br>
-
-        Channel:
-        ${(track.channel??0)+1}
-
+            <b>${track.name}</b><br>
+            ${track.role}<br>
+            Notes: ${track.notes.length}<br>
+            Instrument: ${track.instrument??"-"}<br>
+            Channel: ${(track.channel??0)+1}
         `;
-
         div.appendChild(row);
-
     });
-
 }
 
 /********************************************************************
  ANALYSE BUTTON
 ********************************************************************/
 
-document
-.getElementById("analyse")
-.onclick=()=>{
+document.getElementById("analyse").onclick=()=>{
+    if(!midiFile){
+        alert("Load a MIDI first.");
+        return;
+    }
 
     try{
-
         const song=parseTracks();
-
         classifyTracks(song);
-
         showTracks(song);
-
         console.log(song);
-
-        alert(
-
-        "Parser complete."
-
-        );
-
     }
-
     catch(err){
-
         alert(err.message);
-
     }
-
 };
+
+</script>
+</body>
+</html>
