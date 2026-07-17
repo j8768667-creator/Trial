@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Chord Arranger Studio v6.1</title>
+<title>Chord Arranger Studio v6.2</title>
 <style>
 :root{--bg:#f5f7fb;--panel:#fff;--ink:#172033;--muted:#667085;--accent:#5147e5;--accent2:#eeedff;--border:#d9dfeb;--ok:#137a4b;--err:#b42318;--dark:#101828}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:1160px;margin:auto;padding:22px}
@@ -18,7 +18,7 @@ label{display:block;margin:12px 0 6px;font-weight:750}input,select,textarea,butt
 </head>
 <body>
 <div class="wrap">
-<header><span class="badge">Single-timeline arrangement engine</span><h1>Chord Arranger Studio <span class="version">v6.1</span></h1><div class="sub">Every track, the browser preview and the exported MIDI read from the same master event timeline — now with more genres, selectable voicings, stem exports, and reference-MIDI track analysis.</div></header>
+<header><span class="badge">Single-timeline arrangement engine</span><h1>Chord Arranger Studio <span class="version">v6.2</span></h1><div class="sub">Every track, the browser preview and the exported MIDI read from the same master event timeline — now with more genres, selectable voicings, stem exports, reference-MIDI rhythm shaping, and chord-chart import.</div></header>
 <div class="grid">
 <section class="card">
 <label for="preset">Progression preset</label>
@@ -63,6 +63,13 @@ label{display:block;margin:12px 0 6px;font-weight:750}input,select,textarea,butt
 <input id="referenceMidi" type="file" accept=".mid,.midi">
 <div id="referenceInfo" class="help" style="margin-top:8px">No file loaded.</div>
 <div id="referenceTracks" class="refPanel" style="display:none"></div>
+<div class="help" id="rhythmHelp" style="margin-top:8px">Rhythm shaping: when checked, that track borrows its note-timing pattern from the matching role in the reference MIDI instead of the genre's built-in groove.</div>
+<div class="checks"><label><input id="rhythmDrums" type="checkbox">Drums rhythm</label><label><input id="rhythmBass" type="checkbox">Bass rhythm</label><label><input id="rhythmHarmony" type="checkbox">Harmony rhythm</label></div>
+<label for="rhythmInfluence">Rhythm influence</label><div class="rangeRow"><input id="rhythmInfluence" type="range" min="0" max="100" value="70"><output id="rhythmInfluenceOut">70%</output></div>
+<div class="miniTitle">Chord chart (optional)</div>
+<div class="help">Upload a .txt file (same syntax as the box above) or a .mid file — its harmony track is auto-detected and converted into a chord progression, replacing the box above.</div>
+<input id="chordChartFile" type="file" accept=".txt,.mid,.midi">
+<div id="chordChartInfo" class="help" style="margin-top:8px">No file loaded.</div>
 <div class="warning">The chord guide is off by default because its sustained notes can mask the rhythmic harmony. It remains available as a separate MIDI track.</div>
 <div class="actions"><button class="primary" id="generate" type="button">Generate</button><button class="secondary" id="preview" type="button" data-playing="0">▶ Preview</button><button class="secondary" id="download" type="button">Export MIDI</button><button class="secondary" id="exportStems" type="button">Export Stems</button><button class="secondary" id="exportChart" type="button">Export Chord Chart</button></div>
 <div id="status" class="status">Ready.</div><div class="meter"><div id="progress"></div></div>
@@ -100,14 +107,14 @@ function classify(name){const n=name.toLowerCase();return{intro:n.includes("intr
 function midiAt(pc,target){let n=Math.round((target-pc)/12)*12+pc;while(n<0)n+=12;while(n>127)n-=12;return n}
 function add(events,track,tick,dur,pitch,vel,channel,group=""){events.push({track,tick:Math.round(tick),dur:Math.max(24,Math.round(dur)),pitch:clamp(Math.round(pitch),0,127),vel:clamp(Math.round(vel),1,127),channel,group})}
 function chordPCs(c){return[...new Set(c.ints.slice(0,5).map(i=>(c.root+i)%12))]}
-function voicing(c,target=58,count=4,style="close"){let pcs=chordPCs(c);if(style==="rootless"&&pcs.length>=4){const stripped=pcs.filter(p=>p!==c.root);if(stripped.length)pcs=stripped}let notes=pcs.map((p,i)=>midiAt(p,target+i*4));if(c.bass!==c.root)notes[0]=midiAt(c.bass,target-10);notes=[...new Set(notes)].sort((a,b)=>a-b);if(style==="open"&&notes.length>=3)for(let i=1;i<notes.length;i+=2)notes[i]-=12;if(style==="drop2"&&notes.length>=3)notes[notes.length-2]-=12;notes=[...new Set(notes)].sort((a,b)=>a-b);while(notes.length>count)notes.pop();return notes}
+function voicing(c,target=58,count=4,style="close"){let pcs=chordPCs(c);if(style==="rootless"){if(pcs.length>=4){const stripped=pcs.filter(p=>p!==c.root);if(stripped.length)pcs=stripped}else{const ninthPc=(c.root+2)%12,withoutRoot=pcs.filter(p=>p!==c.root);pcs=[...withoutRoot,ninthPc]}}if((style==="open"||style==="drop2")&&pcs.length<count){const EXT=[14,17,21,26];let e=0;pcs=pcs.slice();while(pcs.length<count){pcs.push((c.root+EXT[e%EXT.length])%12);e++}}let notes=pcs.map((p,i)=>midiAt(p,target+i*4));if(c.bass!==c.root)notes[0]=midiAt(c.bass,target-10);notes=[...new Set(notes)].sort((a,b)=>a-b);if(style==="open"&&notes.length>=3)for(let i=1;i<notes.length;i+=2)notes[i]-=12;if(style==="drop2"&&notes.length>=3)notes[notes.length-2]-=12;notes=[...new Set(notes)].sort((a,b)=>a-b);while(notes.length>count)notes.pop();return notes}
 function autoKey(chords){const candidates=[];for(let tonic=0;tonic<12;tonic++)for(const mode of ["maj","min"]){const scale=scalePCs({tonic,mode});let score=0;for(const c of chords){for(const p of chordPCs(c))score+=scale.includes(p)?2:-2;if(scale.includes(c.root))score+=2}candidates.push({tonic,mode,score})}return candidates.sort((a,b)=>b.score-a.score)[0]}
 function selectedKey(chords){if($("key").value==="auto")return autoKey(chords);const [tonic,mode]=$("key").value.split(":");return{tonic:+tonic,mode}}
 function scalePCs(key){const ints=key.mode==="min"?[0,2,3,5,7,8,10]:[0,2,4,5,7,9,11];return ints.map(i=>(key.tonic+i)%12)}
 function velocity(base,rng,human){const amount=(human/100)*12;return clamp(base+Math.round((rng()*2-1)*amount),1,127)}
 function swingTick(tick,swing){if(!swing)return tick;const inBeat=((tick%PPQ)+PPQ)%PPQ;const eighth=PPQ/2;if(Math.abs(inBeat-eighth)<2){const target=PPQ*(swing/100);return tick+(target-eighth)}return tick}
 function sectionEnergy(sec){const c=classify(sec.name);return c.chorus?1:c.verse?.78:c.bridge?.68:c.intro?.5:c.outro?.55:.72}
-function masterTimeline(){const chords=parseChords($("chords").value),structure=parseStructure($("structure").value),sections=expandSections(structure),bars=expandChordBars(chords,sections.length),style=$("style").value,key=selectedKey(chords),tempo=clamp(+$('tempo').value||STYLE[style].tempo,40,220),seed=+$('seed').value||1,complexity=+$('complexity').value,density=+$('density').value,swing=+$('swing').value,human=+$('humanise').value,voicingStyle=$("voicingStyle").value,rng=rng32(seed),bassOv=$("bassInstrument").value,leadOv=$("leadInstrument").value,bassProgram=bassOv!=="auto"?+bassOv:STYLE[style].bass,leadProgram=leadOv!=="auto"?+leadOv:STYLE[style].lead;return{chords,structure,sections,bars,style,key,tempo,seed,complexity,density,swing,human,voicingStyle,rng,bassProgram,leadProgram,totalBars:sections.length,totalTicks:sections.length*BAR}}
+function masterTimeline(){const chords=parseChords($("chords").value),structure=parseStructure($("structure").value),sections=expandSections(structure),bars=expandChordBars(chords,sections.length),style=$("style").value,key=selectedKey(chords),tempo=clamp(+$('tempo').value||STYLE[style].tempo,40,220),seed=+$('seed').value||1,complexity=+$('complexity').value,density=+$('density').value,swing=+$('swing').value,human=+$('humanise').value,voicingStyle=$("voicingStyle").value,rng=rng32(seed),bassOv=$("bassInstrument").value,leadOv=$("leadInstrument").value,bassProgram=bassOv!=="auto"?+bassOv:STYLE[style].bass,leadProgram=leadOv!=="auto"?+leadOv:STYLE[style].lead,rhythmInfluence=+$("rhythmInfluence").value/100,rhythmTargets={drums:$("rhythmDrums").checked,bass:$("rhythmBass").checked,harmony:$("rhythmHarmony").checked};return{chords,structure,sections,bars,style,key,tempo,seed,complexity,density,swing,human,voicingStyle,rng,bassProgram,leadProgram,rhythmInfluence,rhythmTargets,totalBars:sections.length,totalTicks:sections.length*BAR}}
 function groove(style,part,energy,density,complexity){const chorus=energy>.9,busy=density>=4,complex=complexity>=4;const G={
  pop:{drums:{kick:chorus?[0,8,11]:[0,8],snare:[4,12],hat:busy?[0,2,4,6,8,10,12,14]:[0,4,8,12]},bass:chorus?[0,6,8,14]:[0,6,8,14],harmony:chorus?[0,2,4,7,8,10,12,14]:[0,3,6,8,11,14]},
  rock:{drums:{kick:chorus?[0,6,8,14]:[0,8],snare:[4,12],hat:busy?[0,2,4,6,8,10,12,14]:[0,4,8,12]},bass:chorus?[0,2,4,6,8,10,12,14]:[0,4,8,12],harmony:chorus?[0,2,6,8,10,14]:[0,6,8,14]},
@@ -121,9 +128,9 @@ function groove(style,part,energy,density,complexity){const chorus=energy>.9,bus
  gospel:{drums:{kick:chorus?[0,6,8,11,14]:[0,8],snare:[4,12],hat:busy?[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:[0,2,4,6,8,10,12,14]},bass:[0,3,6,8,10,14],harmony:complex?[0,2,3,6,8,10,12,14]:[0,6,8,14]},
  metal:{drums:{kick:busy?[0,2,3,6,8,10,11,14]:[0,6,8,14],snare:[4,12],hat:[0,2,4,6,8,10,12,14]},bass:[0,2,4,6,8,10,12,14],harmony:[0,8]}
  };return G[style][part]}
-function generateDrums(song,events){for(let b=0;b<song.totalBars;b++){const sec=song.sections[b],energy=sectionEnergy(sec),g=groove(song.style,"drums",energy,song.density,song.complexity),base=b*BAR;for(const s of g.kick)add(events,"drums",swingTick(base+s*STEP,song.swing),70,36,velocity(88+energy*22,song.rng,song.human),9);for(const s of g.snare)add(events,"drums",swingTick(base+s*STEP,song.swing),65,38,velocity(90+energy*20,song.rng,song.human),9);for(const s of g.hat)add(events,"drums",swingTick(base+s*STEP,song.swing),30,song.style==="jazz"?51:(s%4===2?46:42),velocity(43+energy*18,song.rng,song.human),9);if((classify(sec.name).chorus&&sec.index===0)||b===0)add(events,"drums",base,100,49,velocity(105,song.rng,song.human),9)}}
-function generateBass(song,events){for(let b=0;b<song.totalBars;b++){const c=song.bars[b],sec=song.sections[b],energy=sectionEnergy(sec),steps=groove(song.style,"bass",energy,song.density,song.complexity),base=b*BAR,next=song.bars[Math.min(b+1,song.totalBars-1)];steps.forEach((s,i)=>{let pc=c.bass;if(song.style==="jazz"||song.style==="blues"){const walk=[c.bass,(c.root+(c.minor?3:4))%12,(c.root+7)%12,(next.bass+11)%12];pc=walk[i%4]}else if(i%4===3&&song.complexity>=3)pc=(c.root+7)%12;let p=midiAt(pc,song.style==="funk"?35:38);if(song.style==="house"&&i===steps.length-1&&energy>.9)p+=12;const nextTick=i+1<steps.length?base+steps[i+1]*STEP:base+BAR;add(events,"bass",swingTick(base+s*STEP,song.swing),Math.min(nextTick-(base+s*STEP)-24,STEP*3),p,velocity(78+energy*16,song.rng,song.human),1)})}}
-function generateHarmony(song,events){const attacks=[];for(let b=0;b<song.totalBars;b++){const c=song.bars[b],sec=song.sections[b],energy=sectionEnergy(sec),steps=groove(song.style,"harmony",energy,song.density,song.complexity),base=b*BAR,notes=(song.style==="rock"?[(midiAt(c.root,48)),midiAt((c.root+7)%12,55),midiAt(c.root,60)]:voicing(c,song.style==="ambient"?52:58,song.complexity>=4?5:4,song.voicingStyle));attacks[b]=[];steps.forEach((s,i)=>{const tick=swingTick(base+s*STEP,song.swing),next=i+1<steps.length?swingTick(base+steps[i+1]*STEP,song.swing):base+BAR;let gate=.62;if(["funk","reggae"].includes(song.style))gate=.28;if(song.style==="house")gate=.48;if(song.style==="ambient")gate=.9;const dur=Math.max(48,(next-tick)*gate);attacks[b].push(tick);for(const n of notes)add(events,"harmony",tick,dur,n,velocity(54+energy*23+(i===0?5:0),song.rng,song.human),2,`H${b}:${i}`)})}return attacks}
+function generateDrums(song,events){for(let b=0;b<song.totalBars;b++){const sec=song.sections[b],energy=sectionEnergy(sec),useRef=song.rhythmTargets.drums&&referenceGrooves&&referenceGrooves.drums&&song.rng()<song.rhythmInfluence,g=useRef?referenceGrooves.drums:groove(song.style,"drums",energy,song.density,song.complexity),base=b*BAR;for(const s of (g.kick||[]))add(events,"drums",swingTick(base+s*STEP,song.swing),70,36,velocity(88+energy*22,song.rng,song.human),9);for(const s of (g.snare||[]))add(events,"drums",swingTick(base+s*STEP,song.swing),65,38,velocity(90+energy*20,song.rng,song.human),9);for(const s of (g.hat||[]))add(events,"drums",swingTick(base+s*STEP,song.swing),30,song.style==="jazz"?51:(s%4===2?46:42),velocity(43+energy*18,song.rng,song.human),9);if((classify(sec.name).chorus&&sec.index===0)||b===0)add(events,"drums",base,100,49,velocity(105,song.rng,song.human),9)}}
+function generateBass(song,events){for(let b=0;b<song.totalBars;b++){const c=song.bars[b],sec=song.sections[b],energy=sectionEnergy(sec),useRef=song.rhythmTargets.bass&&referenceGrooves&&referenceGrooves.bass&&song.rng()<song.rhythmInfluence,steps=useRef?referenceGrooves.bass:groove(song.style,"bass",energy,song.density,song.complexity),base=b*BAR,next=song.bars[Math.min(b+1,song.totalBars-1)];steps.forEach((s,i)=>{let pc=c.bass;if(song.style==="jazz"||song.style==="blues"){const walk=[c.bass,(c.root+(c.minor?3:4))%12,(c.root+7)%12,(next.bass+11)%12];pc=walk[i%4]}else if(i%4===3&&song.complexity>=3)pc=(c.root+7)%12;let p=midiAt(pc,song.style==="funk"?35:38);if(song.style==="house"&&i===steps.length-1&&energy>.9)p+=12;const nextTick=i+1<steps.length?base+steps[i+1]*STEP:base+BAR;add(events,"bass",swingTick(base+s*STEP,song.swing),Math.min(nextTick-(base+s*STEP)-24,STEP*3),p,velocity(78+energy*16,song.rng,song.human),1)})}}
+function generateHarmony(song,events){const attacks=[];for(let b=0;b<song.totalBars;b++){const c=song.bars[b],sec=song.sections[b],energy=sectionEnergy(sec),useRef=song.rhythmTargets.harmony&&referenceGrooves&&referenceGrooves.harmony&&song.rng()<song.rhythmInfluence,steps=useRef?referenceGrooves.harmony:groove(song.style,"harmony",energy,song.density,song.complexity),base=b*BAR,notes=(song.style==="rock"?[(midiAt(c.root,48)),midiAt((c.root+7)%12,55),midiAt(c.root,60)]:voicing(c,song.style==="ambient"?52:58,song.complexity>=4?5:4,song.voicingStyle));attacks[b]=[];steps.forEach((s,i)=>{const tick=swingTick(base+s*STEP,song.swing),next=i+1<steps.length?swingTick(base+steps[i+1]*STEP,song.swing):base+BAR;let gate=.62;if(["funk","reggae"].includes(song.style))gate=.28;if(song.style==="house")gate=.48;if(song.style==="ambient")gate=.9;const dur=Math.max(48,(next-tick)*gate);attacks[b].push(tick);for(const n of notes)add(events,"harmony",tick,dur,n,velocity(54+energy*23+(i===0?5:0),song.rng,song.human),2,`H${b}:${i}`)})}return attacks}
 function nearestPitch(pc,target,previous){let p=midiAt(pc,target);if(previous==null)return p;while(p-previous>6)p-=12;while(previous-p>6)p+=12;return clamp(p,48,88)}
 function melodyTargets(song,c,barIndex,onsets,previous){const keyScale=scalePCs(song.key),chord=chordPCs(c),safe=chord.filter(p=>keyScale.includes(p)),anchors=safe.length?safe:chord,contours={pop:[0,1,2,1,3,2,1,0],rock:[0,2,1,3,2,4,2,1],house:[0,1,2,3,2,1,3,4],jazz:[0,2,1,3,4,2,5,3],blues:[0,2,1,3,1,4,2,0],funk:[0,1,0,2,1,3,1,0],reggae:[0,2,1,0,2,1],ambient:[0,2,4,3,1,2],latin:[0,2,1,3,2,4,1,0],gospel:[0,2,3,1,4,2,3,1],metal:[0,1,3,2,4,1,3,0]}[song.style];const out=[];for(let i=0;i<onsets.length;i++){const strong=i===0||Math.abs((onsets[i]%BAR)/PPQ-Math.round((onsets[i]%BAR)/PPQ))<.02;const pool=strong?anchors:keyScale;const index=(contours[(barIndex+i)%contours.length]+barIndex+i)%pool.length;const pc=pool[index];const pitch=nearestPitch(pc,song.style==="house"?74:70,previous);out.push(pitch);previous=pitch}return out}
 function generateLead(song,events,harmonyAttacks){let previous=null;for(let b=0;b<song.totalBars;b++){const sec=song.sections[b],cls=classify(sec.name),energy=sectionEnergy(sec);if(cls.intro&&song.style!=="ambient"&&song.style!=="house"&&b%2===1)continue;let ons=harmonyAttacks[b]||[b*BAR];if(ons.length>5)ons=ons.filter((_,i)=>i%2===0);if(song.density<=2)ons=ons.filter((_,i)=>i%2===0);if(!ons.length)ons=[b*BAR];const pitches=melodyTargets(song,song.bars[b],b,ons,previous);for(let i=0;i<ons.length;i++){const tick=ons[i],next=i+1<ons.length?ons[i+1]:(b+1)*BAR,dur=Math.max(60,(next-tick)*(song.style==="ambient"?.72:.55)),pitch=pitches[i];add(events,"lead",tick,dur,pitch,velocity(65+energy*18,song.rng,song.human),3,`L${b}:${i}`);previous=pitch}}}
@@ -132,7 +139,7 @@ function finishSong(song,events){if(song.ending==="stop")return;const finalBar=s
 function buildArrangement(){const song=masterTimeline();song.ending=$("ending").value;const events=[];generateDrums(song,events);generateBass(song,events);const attacks=generateHarmony(song,events);generateLead(song,events,attacks);generateGuide(song,events);finishSong(song,events);events.sort((a,b)=>a.tick-b.tick||a.track.localeCompare(b.track)||a.pitch-b.pitch);return{...song,events,attacks}}
 function enabledTrack(t){return t==="drums"?$("drums").checked:t==="bass"?$("bass").checked:t==="harmony"?$("harmony").checked:t==="lead"?$("lead").checked:t==="guide"?$("guide").checked:true}
 function render(arr){const counts={};for(const e of arr.events)counts[e.track]=(counts[e.track]||0)+1;const keyName=`${NOTE_NAMES[arr.key.tonic]} ${arr.key.mode==="min"?"minor":"major"}`,lines=[`${arr.style.toUpperCase()} · ${arr.tempo} BPM · ${keyName} · ${arr.totalBars} bars · ${arr.voicingStyle} voicing · seed ${arr.seed}`,"",...arr.structure.map(s=>`${s.name.padEnd(14)} ${String(s.bars).padStart(3)} bars`),"","BAR  SECTION        CHORD"];for(let b=0;b<Math.min(arr.totalBars,48);b++)lines.push(`${String(b+1).padStart(3,"0")}  ${arr.sections[b].name.padEnd(14)} ${arr.bars[b].name}`);if(arr.totalBars>48)lines.push(`… ${arr.totalBars-48} more bars`);lines.push("",`Events: drums ${counts.drums||0} · bass ${counts.bass||0} · harmony ${counts.harmony||0} · lead ${counts.lead||0} · guide ${counts.guide||0}`);$("output").textContent=lines.join("\n");$("stats").textContent=`Shared clock: ${PPQ} PPQ · ${arr.events.length} total events`;const colors=["#5147e5","#0f9f6e","#d97706","#b42318","#2563eb","#7c3aed"];$("timeline").innerHTML="";arr.structure.forEach((s,i)=>{const el=document.createElement("span");el.style.flex=String(s.bars);el.style.background=colors[i%colors.length];el.textContent=s.name;el.title=`${s.name}: ${s.bars} bars`;$("timeline").appendChild(el)})}
-let arrangement=null,audioCtx=null,active=[],timer=null,scheduler=null,playState=null,noiseBuffer=null;
+let arrangement=null,audioCtx=null,active=[],timer=null,scheduler=null,playState=null,noiseBuffer=null,referenceGrooves=null;
 function ensureAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==="suspended")audioCtx.resume();return audioCtx}
 function noise(ctx){if(!noiseBuffer){noiseBuffer=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate);const d=noiseBuffer.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}return noiseBuffer}
 function tone(ctx,dest,when,dur,pitch,vel,type){const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=440*Math.pow(2,(pitch-69)/12);const peak=(vel/127)*.16,end=when+Math.max(.045,dur);g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(Math.max(.002,peak),when+.006);g.gain.exponentialRampToValueAtTime(.0001,end);o.connect(g);g.connect(dest);o.start(when);o.stop(end+.02);active.push(o)}
@@ -270,6 +277,35 @@ function applyReferenceSettings(song){
     if(harmonyTrack)$("harmonySound").value=mapProgramToHarmonySound(harmonyTrack.instrument);
 }
 
+function buildReferenceGrooves(song){
+    const barTicks=song.division*4,toStep=tick=>Math.round(((tick%barTicks)/barTicks)*16)%16;
+    const result={};
+
+    const drumsTrack=song.tracks.find(t=>t.role==="Drums");
+    if(drumsTrack&&drumsTrack.notes.length){
+        const kick=new Set(),snare=new Set(),hat=new Set();
+        for(const n of drumsTrack.notes){
+            const step=toStep(n.tick);
+            if(n.pitch===35||n.pitch===36)kick.add(step);
+            else if(n.pitch===38||n.pitch===40)snare.add(step);
+            else hat.add(step);
+        }
+        result.drums={kick:[...kick].sort((a,b)=>a-b),snare:[...snare].sort((a,b)=>a-b),hat:[...hat].sort((a,b)=>a-b)};
+    }
+
+    const bassTrack=song.tracks.find(t=>t.role==="Bass");
+    if(bassTrack&&bassTrack.notes.length){
+        result.bass=[...new Set(bassTrack.notes.map(n=>toStep(n.tick)))].sort((a,b)=>a-b);
+    }
+
+    const harmonyTrack=song.tracks.find(t=>t.role==="Harmony");
+    if(harmonyTrack&&harmonyTrack.notes.length){
+        result.harmony=[...new Set(harmonyTrack.notes.map(n=>toStep(n.tick)))].sort((a,b)=>a-b);
+    }
+
+    return result;
+}
+
 $("referenceMidi").addEventListener("change",async e=>{
     const file=e.target.files[0];
     if(!file)return;
@@ -280,15 +316,115 @@ $("referenceMidi").addEventListener("change",async e=>{
         const song=classifyReferenceTracks(parseMidiTracks(buf));
         renderReferenceTracks(song);
         applyReferenceSettings(song);
+        referenceGrooves=buildReferenceGrooves(song);
+        $("rhythmDrums").checked=!!referenceGrooves.drums;
+        $("rhythmBass").checked=!!referenceGrooves.bass;
+        $("rhythmHarmony").checked=!!referenceGrooves.harmony;
+        const shaped=["drums","bass","harmony"].filter(k=>referenceGrooves[k]);
         $("status").className="status ok";
-        $("status").textContent=`Applied tempo and instruments detected from ${file.name}.`;
+        $("status").textContent=shaped.length?`Applied tempo, instruments, and ${shaped.join("/")} rhythm from ${file.name}.`:`Applied tempo and instruments from ${file.name} (no rhythm pattern detected).`;
     }catch(err){
         $("referenceInfo").textContent=`Couldn't read ${file.name}: ${err.message}`;
         $("referenceTracks").style.display="none";
+        referenceGrooves=null;
+        $("rhythmDrums").checked=false;$("rhythmBass").checked=false;$("rhythmHarmony").checked=false;
     }
 });
 
-populateKeys();bindRange("complexity");bindRange("density");bindRange("swing","%");bindRange("humanise","%");
+/********************************************************************
+ CHORD CHART UPLOAD — plain text, or auto-detected from a MIDI harmony track
+********************************************************************/
+
+const ASCII_NAMES=["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+
+function matchChord(pcs){
+    let best=null;
+    for(let root=0;root<12;root++){
+        for(const [qual,ints] of Object.entries(QUAL)){
+            const template=new Set(ints.map(i=>(root+i)%12));
+            let matches=0;
+            for(const p of pcs)if(template.has(p))matches++;
+            const extra=pcs.length-matches,missing=template.size-matches,score=matches*2-extra-missing;
+            if(!best||score>best.score||(score===best.score&&ints.length<best.intsLen)){
+                best={root,qual,score,intsLen:ints.length};
+            }
+        }
+    }
+    return best;
+}
+
+function detectChordProgression(track,division){
+    const notes=track.notes.slice().sort((a,b)=>a.tick-b.tick);
+    if(!notes.length)throw new Error("The selected track has no notes to detect chords from.");
+
+    const points=new Set([0]);
+    for(const n of notes){points.add(n.tick);points.add(n.tick+n.duration)}
+    const sorted=[...points].sort((a,b)=>a-b);
+
+    const segments=[];
+    for(let i=0;i<sorted.length-1;i++){
+        const from=sorted[i],to=sorted[i+1];
+        if(to<=from)continue;
+        const mid=(from+to)/2;
+        const active=notes.filter(n=>n.tick<=mid&&n.tick+n.duration>mid);
+        if(!active.length)continue;
+        const pcs=[...new Set(active.map(n=>n.pitch%12))];
+        segments.push({from,to,pcs:pcs.sort((a,b)=>a-b).join(",")});
+    }
+    if(!segments.length)throw new Error("Couldn't find any sounding chords in that track.");
+
+    const merged=[];
+    for(const seg of segments){
+        const last=merged[merged.length-1];
+        if(last&&last.pcs===seg.pcs)last.to=seg.to;
+        else merged.push({...seg});
+    }
+
+    const barTicks=division*4;
+    return merged.map(seg=>{
+        const pcs=seg.pcs.split(",").map(Number);
+        const match=matchChord(pcs);
+        const bars=Math.max(1,Math.round((seg.to-seg.from)/barTicks));
+        const name=`${ASCII_NAMES[match.root]}${match.qual}`;
+        return bars>1?`${name}(${Math.min(bars,64)})`:name;
+    }).join(" | ");
+}
+
+function normaliseChordText(text){
+    return text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).join(" | ").replace(/\|\s*\|/g,"|");
+}
+
+$("chordChartFile").addEventListener("change",async e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    $("chordChartInfo").textContent=`Reading ${file.name}…`;
+    try{
+        const isMidi=/\.(mid|midi)$/i.test(file.name);
+        if(isMidi){
+            const buf=new Uint8Array(await file.arrayBuffer());
+            const song=classifyReferenceTracks(parseMidiTracks(buf));
+            let track=song.tracks.find(t=>t.role==="Harmony");
+            if(!track)track=song.tracks.filter(t=>t.role!=="Drums").sort((a,b)=>b.notes.length-a.notes.length)[0];
+            if(!track)throw new Error("No usable track found in that MIDI file.");
+            const progression=detectChordProgression(track,song.division);
+            $("chords").value=progression;
+            $("key").value="auto";
+            $("chordChartInfo").textContent=`Detected chords from "${track.name}" in ${file.name}.`;
+        }else{
+            const text=await file.text();
+            $("chords").value=normaliseChordText(text);
+            $("key").value="auto";
+            $("chordChartInfo").textContent=`Loaded chord chart from ${file.name}.`;
+        }
+        generate();
+        $("status").className="status ok";
+        $("status").textContent=`Chord progression replaced from ${file.name}.`;
+    }catch(err){
+        $("chordChartInfo").textContent=`Couldn't read ${file.name}: ${err.message}`;
+    }
+});
+
+populateKeys();bindRange("complexity");bindRange("density");bindRange("swing","%");bindRange("humanise","%");bindRange("rhythmInfluence","%");
 $("style").addEventListener("change",e=>{$("tempo").value=STYLE[e.target.value].tempo;$("swing").value=STYLE[e.target.value].swing;$("swingOut").textContent=STYLE[e.target.value].swing+"%"});
 $("preset").addEventListener("change",e=>{const o=e.target.selectedOptions[0];if(o?.dataset.chords){$("chords").value=o.dataset.chords;$("key").value=o.dataset.key||"auto";if(o.dataset.style){$("style").value=o.dataset.style;$("tempo").value=STYLE[o.dataset.style].tempo;$("swing").value=STYLE[o.dataset.style].swing;$("swingOut").textContent=STYLE[o.dataset.style].swing+"%"}generate()}e.target.selectedIndex=0});
 $("randomise").onclick=()=>{$("seed").value=Math.floor(Math.random()*1000000);generate()};
