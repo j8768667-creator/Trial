@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Interpolation Engine v3.1</title>
+    <title>Musical Interpolation Engine v3.2</title>
     <style>
         /* ===== CSS VARIABLES & RESET ===== */
         :root {
@@ -436,7 +436,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="header-left">
-                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.1</span></span></div>
+                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.2</span></span></div>
             </div>
             <div class="header-actions">
                 <button class="btn-icon" onclick="showHelp()">📖</button>
@@ -621,7 +621,7 @@
 
     <script>
         // ============================================================
-        // Musical Interpolation Engine v3.1 - DOM-Decoupled
+        // Musical Interpolation Engine v3.2 - DOM-Decoupled
         // ============================================================
 
         // ---- State ----
@@ -1087,9 +1087,29 @@
             return result;
         }
 
-        function normaliseForExport(source, ppq) {
+        function repeatNotesToLength(notes, targetEnd) {
+            if (!notes || !notes.length || targetEnd <= 0) return [];
+            const firstStart = Math.min(...notes.map(n => n.start));
+            const shifted = notes.map(n => ({ ...n, start: n.start - firstStart, end: n.end - firstStart }));
+            const sourceEnd = Math.max(...shifted.map(n => n.end));
+            if (sourceEnd <= 0) return shifted;
+            const output = [];
+            for (let offset = 0; offset < targetEnd; offset += sourceEnd) {
+                for (const n of shifted) {
+                    const start = n.start + offset;
+                    if (start >= targetEnd) continue;
+                    const end = Math.min(n.end + offset, targetEnd);
+                    if (end <= start) continue;
+                    output.push({ ...n, start, end, duration: end - start });
+                }
+            }
+            return output.sort((a, b) => a.start - b.start || a.note - b.note);
+        }
+
+        function normaliseForExport(source, ppq, targetEnd = 0) {
             if (!source || !source.notes) return [];
-            return engine.rescaleNotes(source.notes, source.ppq || ppq, ppq).map(n => ({ ...n }));
+            const notes = engine.rescaleNotes(source.notes, source.ppq || ppq, ppq).map(n => ({ ...n }));
+            return targetEnd > 0 ? repeatNotesToLength(notes, targetEnd) : notes;
         }
 
         function safeFileBase(name, fallback) {
@@ -1310,6 +1330,39 @@
                 return Math.max(0, Math.min(127, pitch));
             }
 
+            analyseMusicalRole(notes) {
+                const groups = this.groupByOnset(notes);
+                if (!groups.length) return { harmonicScore: 0, rhythmicScore: 0, avgPolyphony: 1, avgDuration: 1, medianPitch: 60 };
+                const durations = notes.map(n => n.duration).sort((a, b) => a - b);
+                const pitches = notes.map(n => n.note).sort((a, b) => a - b);
+                const avgPolyphony = notes.length / groups.length;
+                const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
+                const medianPitch = pitches[Math.floor(pitches.length / 2)];
+                const end = Math.max(...notes.map(n => n.end));
+                const attacksPerBeat = groups.length / Math.max(1, end / this.ppq);
+                return {
+                    avgPolyphony, avgDuration, medianPitch, attacksPerBeat,
+                    harmonicScore: avgPolyphony * 2.2 + avgDuration / this.ppq,
+                    rhythmicScore: attacksPerBeat * 1.4 + this.ppq / Math.max(this.ppq / 8, avgDuration),
+                };
+            }
+
+            extendToLength(notes, targetEnd) {
+                if (!notes.length) return [];
+                const sourceEnd = Math.max(...notes.map(n => n.end));
+                if (sourceEnd >= targetEnd - 1) return notes.map(n => ({ ...n }));
+                const result = [];
+                for (let offset = 0; offset < targetEnd; offset += sourceEnd) {
+                    for (const n of notes) {
+                        const start = n.start + offset;
+                        if (start >= targetEnd) continue;
+                        const end = Math.min(n.end + offset, targetEnd);
+                        if (end > start) result.push({ ...n, start, end, duration: end - start });
+                    }
+                }
+                return result.sort((a, b) => a.start - b.start || a.note - b.note);
+            }
+
             interpolate(morph, options = {}) {
                 const {
                     blendRhythm = true,
@@ -1329,12 +1382,31 @@
                 const offsetA = notesA[0].start, offsetB = notesB[0].start;
                 notesA = notesA.map(n => ({ ...n, start: n.start - offsetA, end: n.end - offsetA }));
                 notesB = notesB.map(n => ({ ...n, start: n.start - offsetB, end: n.end - offsetB }));
+                const originalEndA = Math.max(...notesA.map(n => n.end));
+                const originalEndB = Math.max(...notesB.map(n => n.end));
+                // Always work to the longer source length. The shorter source is looped, not stretched,
+                // so its groove and note lengths remain intact.
+                const targetEnd = Math.max(originalEndA, originalEndB);
+                notesA = this.extendToLength(notesA, targetEnd);
+                notesB = this.extendToLength(notesB, targetEnd);
                 const groupsA = this.groupByOnset(notesA), groupsB = this.groupByOnset(notesB);
-                const endA = Math.max(...notesA.map(n => n.end)), endB = Math.max(...notesB.map(n => n.end));
-                const targetEnd = blendRhythm ? Math.round(endA * (1 - morph) + endB * morph) : endA;
-                const timeline = blendRhythm ? this.buildRhythmTimeline(groupsA, groupsB, endA, endB, morph)
-                    : groupsA.map(g => ({ norm: g.start / Math.max(1, endA), owner: 'A' }));
-                const scale = constrainToScale ? this.interpolateScale(morph) : null;
+                const endA = targetEnd, endB = targetEnd;
+                const roleA = this.analyseMusicalRole(notesA);
+                const roleB = this.analyseMusicalRole(notesB);
+                const roleContrast = Math.max(roleA.harmonicScore, roleB.harmonicScore) /
+                    Math.max(0.01, Math.min(roleA.harmonicScore, roleB.harmonicScore));
+                const distinctRoles = roleContrast >= 1.55;
+                const harmonicOwner = roleA.harmonicScore >= roleB.harmonicScore ? 'A' : 'B';
+                const rhythmOwner = harmonicOwner === 'A' ? 'B' : 'A';
+                let timeline;
+                if (blendRhythm && distinctRoles && morph > 0.12 && morph < 0.88) {
+                    const rhythmGroups = rhythmOwner === 'A' ? groupsA : groupsB;
+                    timeline = rhythmGroups.map(g => ({ norm: g.start / targetEnd, owner: rhythmOwner }));
+                } else {
+                    timeline = blendRhythm ? this.buildRhythmTimeline(groupsA, groupsB, endA, endB, morph)
+                        : groupsA.map(g => ({ norm: g.start / Math.max(1, endA), owner: 'A' }));
+                }
+                const scale = constrainToScale ? (distinctRoles ? (harmonicOwner === 'A' ? this.scaleA : this.scaleB) : this.interpolateScale(morph)) : null;
                 const swingA = this.estimateSwing(groupsA), swingB = this.estimateSwing(groupsB);
                 const swingOffset = swingA.amount * (1 - morph) + swingB.amount * morph;
                 const result = [], previousVoices = [];
@@ -1344,7 +1416,8 @@
                     const groupB = this.nearestGroup(groupsB, slot.norm, endB);
                     if (!groupA || !groupB) return;
                     const dominant = slot.owner === 'B' ? groupB : groupA;
-                    const other = slot.owner === 'B' ? groupA : groupB;
+                    const harmonicGroup = harmonicOwner === 'A' ? groupA : groupB;
+                    const rhythmicGroup = rhythmOwner === 'A' ? groupA : groupB;
                     let start = Math.round(slot.norm * targetEnd);
 
                     if (gridValue > 0) {
@@ -1356,20 +1429,41 @@
                         if (eighthSlot % 2 === 1) start += Math.round(swingOffset);
                     }
 
-                    const voiceCount = Math.max(1, Math.round(groupA.notes.length * (1 - morph) + groupB.notes.length * morph));
+                    let voiceCount;
+                    if (distinctRoles && morph > 0.12 && morph < 0.88) {
+                        // Preserve recognisable harmony without firing the full chord on every ghost note.
+                        const harmonicVoices = harmonicGroup.notes.length;
+                        const rhythmicVoices = rhythmicGroup.notes.length;
+                        voiceCount = Math.max(1, Math.min(harmonicVoices, Math.round(1 + rhythmicVoices * 0.9 + harmonicVoices * 0.22)));
+                    } else {
+                        voiceCount = Math.max(1, Math.round(groupA.notes.length * (1 - morph) + groupB.notes.length * morph));
+                    }
                     for (let v = 0; v < voiceCount; v++) {
                         const indexA = Math.min(groupA.notes.length - 1, Math.round(v * (groupA.notes.length - 1) / Math.max(1, voiceCount - 1)));
                         const indexB = Math.min(groupB.notes.length - 1, Math.round(v * (groupB.notes.length - 1) / Math.max(1, voiceCount - 1)));
                         const a = groupA.notes[indexA], b = groupB.notes[indexB];
                         const sourceNote = slot.owner === 'B' ? b : a;
-                        let note = blendMelody ? this.choosePitch(a, b, morph, slotIndex * 16 + v, previousVoices[v], scale) : a.note;
+                        let note;
+                        if (blendMelody && distinctRoles && morph > 0.12 && morph < 0.88) {
+                            const hp = Math.min(harmonicGroup.notes.length - 1, Math.round(v * (harmonicGroup.notes.length - 1) / Math.max(1, voiceCount - 1)));
+                            note = harmonicGroup.notes[hp].note;
+                            if (scale) note = this.snapPitchToScale(note, scale);
+                            // Keep voices close to their previous register for smooth chord movement.
+                            if (previousVoices[v] !== undefined) note = this.nearestOctave(note % 12, previousVoices[v]);
+                        } else {
+                            note = blendMelody ? this.choosePitch(a, b, morph, slotIndex * 16 + v, previousVoices[v], scale) : a.note;
+                        }
                         previousVoices[v] = note;
 
-                        let duration = blendDuration ? Math.round(a.duration * (1 - morph) + b.duration * morph) : sourceNote.duration;
-                        // Articulation follows the rhythmic owner more strongly than a plain average.
-                        duration = Math.round(duration * 0.55 + dominant.duration * 0.45);
+                        let duration;
+                        if (blendDuration && distinctRoles && morph > 0.12 && morph < 0.88) {
+                            duration = Math.round(harmonicGroup.duration * 0.28 + rhythmicGroup.duration * 0.72);
+                        } else {
+                            duration = blendDuration ? Math.round(a.duration * (1 - morph) + b.duration * morph) : sourceNote.duration;
+                            duration = Math.round(duration * 0.55 + dominant.duration * 0.45);
+                        }
                         let velocity = blendVelocity ? Math.round(a.velocity * (1 - morph) + b.velocity * morph) : sourceNote.velocity;
-                        velocity = Math.round(velocity * 0.75 + dominant.velocity * 0.25);
+                        velocity = Math.round(velocity * 0.65 + rhythmicGroup.velocity * 0.35);
 
                         if (gridValue > 0) duration = Math.max(1, Math.round(duration / Math.max(1, gridValue / 2)) * Math.max(1, gridValue / 2));
                         duration = Math.max(12, Math.min(duration, Math.max(24, targetEnd - start)));
@@ -1903,18 +1997,27 @@
                     return;
                 }
 
+                const rawA = normaliseForExport(state.sourceA, ppq);
+                const rawB = normaliseForExport(state.sourceB, ppq);
+                const rawBlend = state.interpolated.notes.map(n => ({ ...n }));
+                const selectedEnds = [];
+                if (includeA && rawA.length) selectedEnds.push(Math.max(...rawA.map(n => n.end)));
+                if (includeB && rawB.length) selectedEnds.push(Math.max(...rawB.map(n => n.end)));
+                if (includeBlend && rawBlend.length) selectedEnds.push(Math.max(...rawBlend.map(n => n.end)));
+                const commonEnd = Math.max(1, ...selectedEnds);
+
                 const layers = [];
                 if (includeA) layers.push({
                     name: `Source A - ${safeFileBase(state.sourceA?.name, 'Source_A')}`,
-                    notes: normaliseForExport(state.sourceA, ppq), channel: 0
+                    notes: repeatNotesToLength(rawA, commonEnd), channel: 0
                 });
                 if (includeB) layers.push({
                     name: `Source B - ${safeFileBase(state.sourceB?.name, 'Source_B')}`,
-                    notes: normaliseForExport(state.sourceB, ppq), channel: 1
+                    notes: repeatNotesToLength(rawB, commonEnd), channel: 1
                 });
                 if (includeBlend) layers.push({
                     name: `Interpolation ${Math.round(state.morphValue * 100)}% B`,
-                    notes: state.interpolated.notes.map(n => ({ ...n })), channel: 2
+                    notes: repeatNotesToLength(rawBlend, commonEnd), channel: 2
                 });
 
                 const stamp = Date.now();
@@ -1941,7 +2044,7 @@
                 }
 
                 const status = $('statusText');
-                status.textContent = `✅ Exported ${downloads} MIDI file${downloads === 1 ? '' : 's'} with ${layers.length} selected layer${layers.length === 1 ? '' : 's'}`;
+                status.textContent = `✅ Exported ${downloads} MIDI file${downloads === 1 ? '' : 's'} — all ${layers.length} layer${layers.length === 1 ? '' : 's'} extended to the same length`;
                 status.className = 'success';
             } catch (err) {
                 showModal('Export Error', `Failed to export: ${err.message}`);
@@ -2153,7 +2256,7 @@
         });
 
         function showHelp() {
-            showModal('📖 Musical Interpolation Engine v3.1',
+            showModal('📖 Musical Interpolation Engine v3.2',
                 'How it works:\n\n' +
                 '1. Load two MIDI files (Source A and Source B)\n' +
                 '2. Use the Morph slider to blend between them\n' +
@@ -2170,7 +2273,7 @@
         }
 
         function showAbout() {
-            showModal('🌀 Musical Interpolation Engine v3.1',
+            showModal('🌀 Musical Interpolation Engine v3.2',
                 'A creative tool for blending two MIDI sequences.\n\n' +
                 'Features:\n' +
                 '• Morph between any two MIDI files\n' +
@@ -2236,7 +2339,7 @@
             initFileHandling();
             renderPianoRoll();
             updateStatus();
-            console.log('🌀 Musical Interpolation Engine v3.1');
+            console.log('🌀 Musical Interpolation Engine v3.2');
             console.log('✅ DOM-decoupled engine — no null errors');
             console.log('📖 Press H for help');
             console.log('⌨️ Space=Play, G=Generate, E=Export, R=Reset view');
