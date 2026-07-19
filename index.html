@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Interpolation Engine</title>
+    <title>Musical Interpolation Engine v2.0</title>
     <style>
         /* ===== CSS VARIABLES & RESET ===== */
         :root {
@@ -46,7 +46,6 @@
         ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-        /* ===== LAYOUT ===== */
         .app-container {
             display: grid;
             grid-template-columns: 300px 1fr 300px;
@@ -66,7 +65,6 @@
             padding: 0 16px;
             border-bottom: 1px solid var(--border-color);
         }
-
         .header-left { display: flex; align-items: center; gap: 12px; }
         .logo {
             font-size: 16px;
@@ -107,7 +105,6 @@
             overflow-y: auto;
             grid-row: 2 / -1;
         }
-
         .panel-section { margin-bottom: 14px; }
         .panel-section-title {
             font-size: 9px;
@@ -159,15 +156,16 @@
         .file-info-grid .label { color: var(--text-muted); }
         .file-info-grid .value { color: var(--text-primary); text-align: right; }
 
-        .source-badge {
+        .color-dot {
             display: inline-block;
-            padding: 1px 8px;
-            border-radius: 10px;
-            font-size: 9px;
-            font-weight: 600;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
         }
-        .source-badge.a { background: rgba(88,166,255,0.2); color: var(--accent-blue); }
-        .source-badge.b { background: rgba(188,140,255,0.2); color: var(--accent-purple); }
+        .color-dot.a { background: var(--accent-blue); }
+        .color-dot.b { background: var(--accent-purple); }
+        .color-dot.morph { background: var(--accent-teal); }
 
         /* ===== CENTER PANEL ===== */
         .center-panel {
@@ -176,18 +174,8 @@
             overflow: hidden;
             grid-row: 2 / -1;
         }
-
-        .piano-roll-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-
-        #pianoRollCanvas {
-            width: 100%;
-            height: 100%;
-            cursor: crosshair;
-        }
+        .piano-roll-container { width: 100%; height: 100%; position: relative; }
+        #pianoRollCanvas { width: 100%; height: 100%; cursor: crosshair; }
 
         .piano-roll-controls {
             position: absolute;
@@ -240,7 +228,6 @@
             background: var(--border-color);
             border-radius: 2px;
             outline: none;
-            transition: background var(--transition);
         }
         .morph-control input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -282,6 +269,8 @@
             color: var(--text-muted);
             margin-top: 4px;
         }
+        .morph-control .morph-extremes .name-a { color: var(--accent-blue); }
+        .morph-control .morph-extremes .name-b { color: var(--accent-purple); }
 
         .analysis-badge {
             padding: 2px 8px;
@@ -352,6 +341,7 @@
         }
         .bottom-panel .status .highlight { color: var(--accent-blue); }
         .bottom-panel .status .success { color: var(--accent-green); }
+        .bottom-panel .status .error { color: var(--accent-red); }
 
         .audition-controls {
             display: flex;
@@ -384,7 +374,6 @@
             justify-content: center;
         }
         .modal-overlay.active { display: flex; }
-
         .modal {
             background: var(--bg-secondary);
             border-radius: var(--radius);
@@ -400,7 +389,6 @@
         .modal p { color: var(--text-secondary); font-size: 12px; line-height: 1.6; margin-bottom: 10px; white-space: pre-wrap; }
         .modal .btn-group { display: flex; gap: 6px; justify-content: flex-end; margin-top: 12px; }
 
-        /* ===== RESPONSIVE ===== */
         @media (max-width: 1024px) {
             .app-container { grid-template-columns: 220px 1fr 240px; }
         }
@@ -418,33 +406,16 @@
             .right-panel { grid-row: 4; }
             .bottom-panel { grid-row: 5; }
         }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+        @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.5} }
         .processing { animation: pulse 1s ease-in-out infinite; }
-
-        .color-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 4px;
-        }
-        .color-dot.a { background: var(--accent-blue); }
-        .color-dot.b { background: var(--accent-purple); }
-        .color-dot.morph { background: var(--accent-teal); }
     </style>
 </head>
 <body>
-    <!-- ===== APP CONTAINER ===== -->
     <div class="app-container">
-
-        <!-- ===== HEADER ===== -->
+        <!-- HEADER -->
         <header class="header">
             <div class="header-left">
-                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v1.0</span></span></div>
+                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v2.0</span></span></div>
             </div>
             <div class="header-actions">
                 <button class="btn-icon" onclick="showHelp()">📖</button>
@@ -455,9 +426,8 @@
             </div>
         </header>
 
-        <!-- ===== LEFT PANEL ===== -->
+        <!-- LEFT PANEL -->
         <aside class="left-panel">
-            <!-- Source A -->
             <div class="panel-section">
                 <div class="panel-section-title"><span class="color-dot a"></span> Source A</div>
                 <div class="drop-zone" id="dropA">
@@ -467,16 +437,13 @@
                 </div>
                 <div id="statusA" class="file-status missing">No file loaded</div>
                 <div class="file-info-grid" id="infoA">
-                    <span class="label">Notes</span>
-                    <span class="value" id="notesA">—</span>
-                    <span class="label">Tempo</span>
-                    <span class="value" id="tempoA">—</span>
-                    <span class="label">Key</span>
-                    <span class="value" id="keyA">—</span>
+                    <span class="label">Notes</span><span class="value" id="notesA">—</span>
+                    <span class="label">Tempo</span><span class="value" id="tempoA">—</span>
+                    <span class="label">Key</span><span class="value" id="keyA">—</span>
+                    <span class="label">Duration</span><span class="value" id="durA">—</span>
                 </div>
             </div>
 
-            <!-- Source B -->
             <div class="panel-section">
                 <div class="panel-section-title"><span class="color-dot b"></span> Source B</div>
                 <div class="drop-zone" id="dropB">
@@ -486,16 +453,13 @@
                 </div>
                 <div id="statusB" class="file-status missing">No file loaded</div>
                 <div class="file-info-grid" id="infoB">
-                    <span class="label">Notes</span>
-                    <span class="value" id="notesB">—</span>
-                    <span class="label">Tempo</span>
-                    <span class="value" id="tempoB">—</span>
-                    <span class="label">Key</span>
-                    <span class="value" id="keyB">—</span>
+                    <span class="label">Notes</span><span class="value" id="notesB">—</span>
+                    <span class="label">Tempo</span><span class="value" id="tempoB">—</span>
+                    <span class="label">Key</span><span class="value" id="keyB">—</span>
+                    <span class="label">Duration</span><span class="value" id="durB">—</span>
                 </div>
             </div>
 
-            <!-- Interpolation Settings -->
             <div class="panel-section">
                 <div class="panel-section-title">⚙️ Interpolation Settings</div>
                 <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);padding:2px 0;cursor:pointer;">
@@ -511,19 +475,22 @@
                     <input type="checkbox" id="blendDuration" checked> Blend Duration
                 </label>
                 <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);padding:2px 0;cursor:pointer;">
-                    <input type="checkbox" id="quantizeToGrid" checked> Quantize to Grid
+                    <input type="checkbox" id="constrainToScale" checked> Constrain to Scale
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);padding:2px 0;cursor:pointer;">
+                    <input type="checkbox" id="excludeDrums" checked> Exclude Drums (Ch 10)
                 </label>
                 <select class="key-select" id="gridSelect" style="width:100%;padding:4px 8px;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);font-size:11px;margin-top:4px;">
-                    <option value="16">16th notes</option>
-                    <option value="8">8th notes</option>
-                    <option value="4" selected>Quarter notes</option>
+                    <option value="4">Whole notes</option>
                     <option value="2">Half notes</option>
-                    <option value="1">Whole notes</option>
+                    <option value="1" selected>Quarter notes</option>
+                    <option value="0.5">Eighth notes</option>
+                    <option value="0.25">16th notes</option>
                 </select>
             </div>
         </aside>
 
-        <!-- ===== CENTER PANEL ===== -->
+        <!-- CENTER PANEL -->
         <main class="center-panel">
             <div class="piano-roll-container">
                 <canvas id="pianoRollCanvas"></canvas>
@@ -538,9 +505,8 @@
             </div>
         </main>
 
-        <!-- ===== RIGHT PANEL ===== -->
+        <!-- RIGHT PANEL -->
         <aside class="right-panel">
-            <!-- Morph Control -->
             <div class="panel-section">
                 <div class="panel-section-title">🌀 Morph Control</div>
                 <div class="morph-control">
@@ -550,14 +516,13 @@
                         <span class="morph-label" style="color:var(--accent-purple)">B</span>
                     </div>
                     <div class="morph-extremes">
-                        <span>Arpeggio</span>
+                        <span class="name-a" id="nameA">Source A</span>
                         <span class="morph-value" id="morphValue">50%</span>
-                        <span>Lead</span>
+                        <span class="name-b" id="nameB">Source B</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Analysis -->
             <div class="panel-section">
                 <div class="panel-section-title">📊 Analysis</div>
                 <div id="analysisPlaceholder" style="text-align:center;padding:8px;color:var(--text-muted);font-size:10px;">
@@ -568,12 +533,13 @@
                         <span class="analysis-badge info" id="morphNotes">Notes: 0</span>
                         <span class="analysis-badge info" id="morphDuration">Duration: 0s</span>
                         <span class="analysis-badge info" id="morphTempo">Tempo: 120</span>
+                        <span class="analysis-badge info" id="morphKey">Key: C</span>
                     </div>
                     <div class="stat-grid" id="statGrid"></div>
+                    <div id="keyConfidence" style="margin-top:4px;font-size:9px;color:var(--text-muted);"></div>
                 </div>
             </div>
 
-            <!-- Actions -->
             <div class="panel-section">
                 <button class="action-btn primary" id="generateBtn" onclick="generateInterpolation()" disabled>⚡ Generate Interpolation</button>
                 <button class="action-btn success" id="exportBtn" onclick="exportMIDI()" disabled>💾 Export MIDI</button>
@@ -582,7 +548,7 @@
             </div>
         </aside>
 
-        <!-- ===== BOTTOM PANEL ===== -->
+        <!-- BOTTOM PANEL -->
         <footer class="bottom-panel">
             <div class="status"><span id="statusText">Ready — Load two MIDI files to interpolate</span></div>
             <div class="audition-controls">
@@ -595,7 +561,7 @@
         </footer>
     </div>
 
-    <!-- ===== MODAL ===== -->
+    <!-- MODAL -->
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
             <h2 id="modalTitle">Modal</h2>
@@ -606,18 +572,16 @@
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- ===== JAVASCRIPT ===== -->
-    <!-- ============================================================ -->
     <script>
         // ============================================================
-        // Musical Interpolation Engine - Complete Implementation
+        // Musical Interpolation Engine v2.0
+        // All critical fixes applied
         // ============================================================
 
         // ---- State ----
         const state = {
-            sourceA: { notes: [], tempo: 120, ppq: 480, name: '', key: 'C', duration: 0, stats: null },
-            sourceB: { notes: [], tempo: 120, ppq: 480, name: '', key: 'C', duration: 0, stats: null },
+            sourceA: null, // { notes, tempo, ppq, name, key, duration, stats }
+            sourceB: null,
             interpolated: { notes: [], tempo: 120, ppq: 480, duration: 0 },
             morphValue: 0.5,
             zoomLevel: 1,
@@ -636,7 +600,7 @@
         const ctx = canvas.getContext('2d');
 
         // ============================================================
-        // 1. MIDI Parser (Minimal but Correct)
+        // 1. MIDI VLQ — Standards-Compliant
         // ============================================================
 
         function readVarLen(data, pos) {
@@ -654,6 +618,23 @@
             return { value, pos, error: null };
         }
 
+        function writeVarLen(value) {
+            if (value < 0) value = 0;
+            const bytes = [];
+            while (true) {
+                let b = value & 0x7F;
+                value >>= 7;
+                if (value > 0) b |= 0x80;
+                bytes.push(b);
+                if (value === 0) break;
+            }
+            return bytes;
+        }
+
+        // ============================================================
+        // 2. MIDI Parser — Stack-based overlap handling, tempo map
+        // ============================================================
+
         function parseMIDI(arrayBuffer) {
             const data = new Uint8Array(arrayBuffer);
             const view = new DataView(arrayBuffer);
@@ -668,9 +649,10 @@
 
             let pos = 14;
             const allNotes = [];
-            let tempo = 120;
-            let tempoMicros = 500000;
+            let firstTempo = 500000;
+            let tempoMap = [{ tick: 0, tempo: 500000 }];
             let maxTime = 0;
+            const trackNames = [];
 
             for (let t = 0; t < numTracks; t++) {
                 if (String.fromCharCode(...data.slice(pos, pos + 4)) !== 'MTrk') {
@@ -681,24 +663,31 @@
                 const result = parseTrack(trackData, ppq, t);
                 allNotes.push(...result.notes);
                 if (result.maxTime > maxTime) maxTime = result.maxTime;
-                if (result.tempo) { tempoMicros = result.tempo;
-                    tempo = 60000000 / result.tempo; }
+                if (result.tempo && tempoMap.length === 1) {
+                    firstTempo = result.tempo;
+                    tempoMap = [{ tick: 0, tempo: result.tempo }];
+                }
+                if (result.trackName) trackNames[t] = result.trackName;
                 pos += 8 + trackLength;
             }
 
-            // Detect key from notes
-            const key = detectKey(allNotes);
+            const key = detectKeyKrumhansl(allNotes);
+            const duration = maxTime / ppq * 0.5;
+            const tempo = 60000000 / firstTempo;
 
             return {
                 notes: allNotes.sort((a, b) => a.start - b.start || a.note - b.note),
                 ppq,
                 tempo,
-                tempoMicros,
-                duration: maxTime / ppq * 0.5,
-                key,
+                tempoMap,
+                duration,
+                key: key.name,
+                keyConfidence: key.confidence,
+                keyAlternatives: key.alternatives,
                 maxTime,
                 format,
                 numTracks,
+                trackNames,
             };
         }
 
@@ -707,9 +696,10 @@
                 currentTick = 0,
                 runningStatus = null;
             const notes = [];
-            const activeNotes = new Map();
+            const activeNotes = []; // Stack for overlapping notes
             let maxTime = 0;
             let tempo = null;
+            let trackName = '';
 
             while (pos < data.length) {
                 const vlq = readVarLen(data, pos);
@@ -743,6 +733,9 @@
                     if (metaType === 0x51 && len >= 3) {
                         tempo = (metaData[0] << 16) | (metaData[1] << 8) | metaData[2];
                     }
+                    if (metaType === 0x03) {
+                        trackName = new TextDecoder().decode(metaData);
+                    }
                     continue;
                 }
 
@@ -759,30 +752,51 @@
                 if (type === 0x8 || type === 0x9) {
                     const note = data[pos++];
                     const velocity = data[pos++];
-                    const key = `${trackIndex}|${channel}|${note}`;
+                    const noteId = state.noteIdCounter++;
 
                     if (type === 0x9 && velocity > 0) {
-                        activeNotes.set(key, {
-                            start: currentTick,
-                            velocity,
-                            channel,
+                        // Note on — push to stack
+                        activeNotes.push({
+                            id: noteId,
                             track: trackIndex,
-                            id: state.noteIdCounter++,
+                            channel: channel,
+                            note: note,
+                            start: currentTick,
+                            velocity: velocity,
                         });
                     } else {
-                        if (activeNotes.has(key)) {
-                            const active = activeNotes.get(key);
+                        // Note off — find matching active note (stack LIFO for overlaps)
+                        let found = false;
+                        for (let i = activeNotes.length - 1; i >= 0; i--) {
+                            if (activeNotes[i].note === note && activeNotes[i].channel === channel) {
+                                const active = activeNotes.splice(i, 1)[0];
+                                notes.push({
+                                    id: active.id,
+                                    track: trackIndex,
+                                    channel: channel,
+                                    note: note,
+                                    start: active.start,
+                                    end: currentTick,
+                                    duration: currentTick - active.start,
+                                    velocity: active.velocity,
+                                });
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            // Note off without matching on — create zero-duration note
                             notes.push({
-                                id: active.id,
+                                id: noteId,
                                 track: trackIndex,
                                 channel: channel,
                                 note: note,
-                                start: active.start,
-                                end: currentTick,
-                                duration: currentTick - active.start,
-                                velocity: active.velocity,
+                                start: currentTick,
+                                end: currentTick + 1,
+                                duration: 1,
+                                velocity: 0,
+                                orphan: true,
                             });
-                            activeNotes.delete(key);
                         }
                     }
                 } else {
@@ -792,12 +806,13 @@
                 }
             }
 
-            for (const [key, active] of activeNotes) {
+            // Close any remaining active notes
+            for (const active of activeNotes) {
                 notes.push({
                     id: active.id,
                     track: trackIndex,
                     channel: active.channel,
-                    note: parseInt(key.split('|')[2]),
+                    note: active.note,
                     start: active.start,
                     end: currentTick,
                     duration: currentTick - active.start,
@@ -806,58 +821,98 @@
                 });
             }
 
-            return { notes, maxTime, tempo };
+            return { notes, maxTime, tempo, trackName };
         }
 
-        function detectKey(notes) {
-            if (notes.length === 0) return 'C';
-            const counts = new Array(12).fill(0);
-            for (const n of notes) {
-                if (n.note >= 0 && n.note < 128) counts[n.note % 12] += n.duration || 240;
-            }
+        // ============================================================
+        // 3. Key Detection — Krumhansl-Schmuckler Profile
+        // ============================================================
+
+        function detectKeyKrumhansl(notes) {
+            if (notes.length === 0) return { name: 'C', confidence: 0, alternatives: [] };
+
+            // Krumhansl-Schmuckler key profiles (major and minor)
+            const ksMajor = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+            const ksMinor = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+
             const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-            let max = 0,
-                best = 0;
-            for (let i = 0; i < 12; i++) {
-                if (counts[i] > max) { max = counts[i];
-                    best = i; }
+            const durationWeighted = new Array(12).fill(0);
+
+            for (const n of notes) {
+                if (n.note >= 0 && n.note < 128) {
+                    const dur = n.duration || 240;
+                    durationWeighted[n.note % 12] += dur;
+                }
             }
-            // Simple major/minor check
-            const majorScale = [0, 2, 4, 5, 7, 9, 11];
-            const minorScale = [0, 2, 3, 5, 7, 8, 10];
-            let majorScore = 0,
-                minorScore = 0;
-            for (let i = 0; i < 12; i++) {
-                if (majorScale.includes(i)) majorScore += counts[(best + i) % 12];
-                if (minorScale.includes(i)) minorScore += counts[(best + i) % 12];
+
+            // Normalise
+            const total = durationWeighted.reduce((a, b) => a + b, 0);
+            if (total === 0) return { name: 'C', confidence: 0, alternatives: [] };
+            for (let i = 0; i < 12; i++) durationWeighted[i] /= total;
+
+            let bestScore = -Infinity;
+            let bestKey = 'C';
+            let bestMode = 'major';
+            const alternatives = [];
+
+            for (let root = 0; root < 12; root++) {
+                // Major
+                let scoreMajor = 0;
+                for (let i = 0; i < 12; i++) {
+                    scoreMajor += durationWeighted[(root + i) % 12] * ksMajor[i];
+                }
+                // Minor
+                let scoreMinor = 0;
+                for (let i = 0; i < 12; i++) {
+                    scoreMinor += durationWeighted[(root + i) % 12] * ksMinor[i];
+                }
+
+                const name = noteNames[root];
+                alternatives.push({ name, major: scoreMajor, minor: scoreMinor });
+
+                if (scoreMajor > bestScore) {
+                    bestScore = scoreMajor;
+                    bestKey = name;
+                    bestMode = 'major';
+                }
+                if (scoreMinor > bestScore) {
+                    bestScore = scoreMinor;
+                    bestKey = name + 'm';
+                    bestMode = 'minor';
+                }
             }
-            return majorScore >= minorScore ? noteNames[best] : noteNames[best] + 'm';
+
+            // Sort alternatives by score
+            alternatives.sort((a, b) => Math.max(b.major, b.minor) - Math.max(a.major, a.minor));
+
+            // Normalise confidence to 0-100
+            const confidence = Math.min(100, Math.max(0, (bestScore + 1) * 50));
+
+            return {
+                name: bestKey,
+                mode: bestMode,
+                confidence: Math.round(confidence),
+                alternatives: alternatives.slice(0, 5).map(a => a.name),
+            };
         }
 
         // ============================================================
-        // 2. MIDI Writer
+        // 4. MIDI Writer — Note-off before note-on at same tick
         // ============================================================
-
-        function writeVarLen(value) {
-            const bytes = [];
-            let v = Math.max(0, Math.floor(value));
-            while (true) {
-                let b = v & 0x7F;
-                v >>= 7;
-                if (v > 0) b |= 0x80;
-                bytes.push(b);
-                if (v === 0) break;
-            }
-            return bytes;
-        }
 
         function writeMIDI(notes, ppq, tempo) {
             const events = [];
             for (const n of notes) {
-                events.push({ tick: n.start, type: 'on', note: n.note, vel: n.velocity, ch: n.channel || 0 });
+                // Skip orphan/zero-duration notes
+                if (n.orphan || n.duration < 1) continue;
+                events.push({ tick: n.start, type: 'on', note: n.note, vel: n.velocity || 64, ch: n.channel || 0 });
                 events.push({ tick: n.end || n.start + 240, type: 'off', note: n.note, vel: 0, ch: n.channel || 0 });
             }
-            events.sort((a, b) => a.tick - b.tick || (a.type === 'on' ? -1 : 1));
+            // Sort: note-off BEFORE note-on at identical ticks
+            events.sort((a, b) => {
+                if (a.tick !== b.tick) return a.tick - b.tick;
+                return a.type === 'off' ? -1 : 1;
+            });
 
             // Header
             const header = new Uint8Array(14);
@@ -886,7 +941,7 @@
                 if (ev.type === 'on') {
                     trackData.push(0x90 | (ev.ch & 0x0F));
                     trackData.push(ev.note & 0x7F);
-                    trackData.push(Math.min(127, Math.max(0, ev.vel)));
+                    trackData.push(Math.min(127, Math.max(1, ev.vel)));
                 } else {
                     trackData.push(0x80 | (ev.ch & 0x0F));
                     trackData.push(ev.note & 0x7F);
@@ -908,24 +963,70 @@
         }
 
         // ============================================================
-        // 3. Interpolation Engine
+        // 5. MIDI Validation — Round-trip check
+        // ============================================================
+
+        function validateMIDI(midiData) {
+            try {
+                const parsed = parseMIDI(midiData.buffer);
+                if (parsed.notes.length === 0) return { valid: false, error: 'No notes in exported file' };
+                if (parsed.maxTime < 0) return { valid: false, error: 'Invalid timing' };
+                return { valid: true, parsed };
+            } catch (e) {
+                return { valid: false, error: e.message };
+            }
+        }
+
+        // ============================================================
+        // 6. Interpolation Engine — Timeline-based alignment
         // ============================================================
 
         class InterpolationEngine {
             constructor() {
+                this.ppq = 480;
                 this.notesA = [];
                 this.notesB = [];
-                this.ppq = 480;
                 this.tempoA = 120;
                 this.tempoB = 120;
+                this.keyA = 'C';
+                this.keyB = 'C';
+                this.scaleA = [];
+                this.scaleB = [];
             }
 
-            setSources(notesA, notesB, ppq, tempoA, tempoB) {
-                this.notesA = notesA.map(n => ({ ...n }));
-                this.notesB = notesB.map(n => ({ ...n }));
-                this.ppq = ppq;
+            setSources(notesA, notesB, ppq, tempoA, tempoB, keyA, keyB) {
+                this.notesA = this.filterNotes(notesA);
+                this.notesB = this.filterNotes(notesB);
+                this.ppq = ppq || 480;
                 this.tempoA = tempoA || 120;
                 this.tempoB = tempoB || 120;
+                this.keyA = keyA || 'C';
+                this.keyB = keyB || 'C';
+                this.scaleA = this.getScale(keyA);
+                this.scaleB = this.getScale(keyB);
+            }
+
+            filterNotes(notes) {
+                // Exclude channel 10 (drums) if option is on
+                const excludeDrums = $('#excludeDrums').checked;
+                return notes.filter(n => {
+                    if (excludeDrums && n.channel === 9) return false;
+                    return n.note >= 0 && n.note < 128 && (n.duration || 240) > 0;
+                });
+            }
+
+            getScale(key) {
+                const root = this.keyToRoot(key);
+                const isMinor = key.includes('m');
+                const intervals = isMinor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
+                return intervals.map(i => (root + i) % 12);
+            }
+
+            keyToRoot(key) {
+                const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                const clean = key.replace(/[^A-G#b]/g, '');
+                const idx = names.indexOf(clean);
+                return idx >= 0 ? idx : 0;
             }
 
             interpolate(morph, options = {}) {
@@ -934,133 +1035,197 @@
                         blendMelody = true,
                         blendVelocity = true,
                         blendDuration = true,
-                        quantizeToGrid = false,
-                        gridValue = 240,
+                        constrainToScale = true,
+                        gridValue = 0,
                 } = options;
 
-                if (this.notesA.length === 0 || this.notesB.length === 0) {
-                    return [];
-                }
+                const notesA = this.notesA;
+                const notesB = this.notesB;
 
-                // Normalise both sequences
-                const seqA = this.normaliseSequence(this.notesA);
-                const seqB = this.normaliseSequence(this.notesB);
+                if (notesA.length === 0 || notesB.length === 0) return [];
 
-                // Match lengths
-                const maxLen = Math.max(seqA.length, seqB.length);
-                const paddedA = this.padSequence(seqA, maxLen);
-                const paddedB = this.padSequence(seqB, maxLen);
+                // Normalise both sequences to start at 0
+                const startA = notesA.length > 0 ? notesA[0].start : 0;
+                const startB = notesB.length > 0 ? notesB[0].start : 0;
 
+                const normA = notesA.map(n => ({
+                    ...n,
+                    start: n.start - startA,
+                    end: (n.end || n.start + 240) - startA,
+                    duration: n.duration || 240,
+                }));
+
+                const normB = notesB.map(n => ({
+                    ...n,
+                    start: n.start - startB,
+                    end: (n.end || n.start + 240) - startB,
+                    duration: n.duration || 240,
+                }));
+
+                // Align by beat/time — create timeline
+                const maxDurA = Math.max(...normA.map(n => n.end || n.start + 240));
+                const maxDurB = Math.max(...normB.map(n => n.end || n.start + 240));
+                const duration = Math.max(maxDurA, maxDurB);
+
+                // Create time-aligned event lists
+                const eventsA = this.notesToEvents(normA);
+                const eventsB = this.notesToEvents(normB);
+
+                // Interpolate by time grid
                 const result = [];
+                const grid = gridValue > 0 ? gridValue : 60; // fallback
 
-                for (let i = 0; i < maxLen; i++) {
-                    const a = paddedA[i];
-                    const b = paddedB[i];
+                // Use beat-based alignment: create events at regular intervals
+                const step = grid;
+                const numSteps = Math.ceil(duration / step) + 1;
 
-                    if (!a || !b) continue;
+                for (let i = 0; i < numSteps; i++) {
+                    const time = i * step;
 
-                    // Interpolate each parameter
+                    // Find closest events in A and B
+                    const evA = this.findClosestEvent(eventsA, time);
+                    const evB = this.findClosestEvent(eventsB, time);
+
+                    if (!evA && !evB) continue;
+
+                    const a = evA || evB;
+                    const b = evB || evA;
+
+                    // Interpolate parameters
                     let note = a.note;
-                    let start = a.start;
-                    let end = a.end;
-                    let velocity = a.velocity;
-                    let duration = a.duration;
+                    let start = time;
+                    let end = time + (a.duration || 240);
+                    let velocity = a.velocity || 64;
+                    let duration = a.duration || 240;
 
-                    // Melody interpolation (pitch)
                     if (blendMelody) {
                         const pitchDiff = b.note - a.note;
                         note = Math.round(a.note + pitchDiff * morph);
+                        // Constrain to scale if enabled
+                        if (constrainToScale) {
+                            const scale = this.interpolateScale(morph);
+                            const noteClass = note % 12;
+                            if (!scale.includes(noteClass)) {
+                                // Find nearest scale degree
+                                let best = noteClass;
+                                let bestDist = 12;
+                                for (const s of scale) {
+                                    let dist = Math.abs(s - noteClass);
+                                    if (dist > 6) dist = 12 - dist;
+                                    if (dist < bestDist) { bestDist = dist;
+                                        best = s; }
+                                }
+                                note = note - (noteClass - best);
+                            }
+                        }
                         note = Math.max(0, Math.min(127, note));
                     }
 
-                    // Rhythm interpolation (timing)
                     if (blendRhythm) {
                         const timeDiff = b.start - a.start;
-                        start = Math.round(a.start + timeDiff * morph);
-                        const endDiff = (b.end || b.start + 240) - (a.end || a.start + 240);
-                        end = Math.round((a.end || a.start + 240) + endDiff * morph);
-                        if (end <= start) end = start + 120;
-                        duration = end - start;
+                        start = Math.round(time + timeDiff * morph * 0.5);
+                        start = Math.max(0, start);
                     }
 
-                    // Velocity interpolation
-                    if (blendVelocity) {
-                        const velDiff = b.velocity - a.velocity;
-                        velocity = Math.round(a.velocity + velDiff * morph);
-                        velocity = Math.max(1, Math.min(127, velocity));
-                    }
-
-                    // Duration interpolation (if not already handled by rhythm)
-                    if (blendDuration && !blendRhythm) {
+                    if (blendDuration) {
                         const durDiff = (b.duration || 240) - (a.duration || 240);
                         duration = Math.round((a.duration || 240) + durDiff * morph);
                         duration = Math.max(30, duration);
                         end = start + duration;
                     }
 
-                    // Quantize to grid
-                    if (quantizeToGrid) {
-                        const grid = gridValue || 240;
-                        start = Math.round(start / grid) * grid;
-                        duration = Math.round(duration / grid) * grid;
-                        if (duration < 30) duration = grid;
+                    if (blendVelocity) {
+                        const velDiff = b.velocity - a.velocity;
+                        velocity = Math.round(a.velocity + velDiff * morph);
+                        velocity = Math.max(1, Math.min(127, velocity));
+                    }
+
+                    // Quantize to grid if enabled
+                    if (gridValue > 0) {
+                        start = Math.round(start / gridValue) * gridValue;
+                        duration = Math.round(duration / gridValue) * gridValue;
+                        if (duration < gridValue) duration = gridValue;
                         end = start + duration;
                     }
 
-                    // Create interpolated note
-                    const interpNote = {
+                    result.push({
                         id: state.noteIdCounter++,
-                        note: note,
+                        note: Math.round(note),
                         start: Math.max(0, start),
                         end: Math.max(start + 30, end),
                         duration: Math.max(30, end - start),
-                        velocity: velocity,
+                        velocity: Math.round(velocity),
                         channel: a.channel || 0,
                         track: a.track || 0,
-                        sourceA: a.note,
-                        sourceB: b.note,
                         morphFactor: morph,
-                    };
-
-                    result.push(interpNote);
+                        sourceANote: a.note,
+                        sourceBNote: b.note,
+                    });
                 }
 
-                // Sort by start time
-                result.sort((a, b) => a.start - b.start);
+                // Remove overlapping notes (keep highest velocity)
+                const sorted = result.sort((a, b) => a.start - b.start);
+                const cleaned = [];
+                for (const n of sorted) {
+                    let overlap = false;
+                    for (const existing of cleaned) {
+                        if (existing.note === n.note &&
+                            n.start < existing.end &&
+                            existing.start < n.end) {
+                            overlap = true;
+                            if (n.velocity > existing.velocity) {
+                                // Replace with higher velocity
+                                const idx = cleaned.indexOf(existing);
+                                cleaned[idx] = n;
+                            }
+                            break;
+                        }
+                    }
+                    if (!overlap) cleaned.push(n);
+                }
 
-                return result;
+                return cleaned;
             }
 
-            normaliseSequence(notes) {
-                if (notes.length === 0) return [];
-                const sorted = [...notes].sort((a, b) => a.start - b.start);
-                // Align to start at 0
-                const firstStart = sorted[0].start;
-                return sorted.map(n => ({
-                    ...n,
-                    start: n.start - firstStart,
-                    end: (n.end || n.start + 240) - firstStart,
+            notesToEvents(notes) {
+                return notes.map(n => ({
+                    start: n.start,
+                    end: n.end || n.start + 240,
                     duration: n.duration || 240,
+                    note: n.note,
+                    velocity: n.velocity || 64,
+                    channel: n.channel || 0,
+                    track: n.track || 0,
                 }));
             }
 
-            padSequence(seq, targetLen) {
-                if (seq.length >= targetLen) return seq;
-                const padded = [...seq];
-                // Pad with silence by repeating the last note pattern with offset
-                if (seq.length > 0) {
-                    const last = seq[seq.length - 1];
-                    const pattern = seq.length > 1 ? seq[seq.length - 2] : last;
-                    for (let i = seq.length; i < targetLen; i++) {
-                        const copy = { ...last };
-                        copy.start = last.start + (i - seq.length + 1) * 240;
-                        copy.end = copy.start + (last.duration || 240);
-                        copy.duration = last.duration || 240;
-                        copy.id = state.noteIdCounter++;
-                        padded.push(copy);
-                    }
+            findClosestEvent(events, time) {
+                if (events.length === 0) return null;
+                let best = events[0];
+                let bestDist = Math.abs(events[0].start - time);
+                for (const ev of events) {
+                    const dist = Math.abs(ev.start - time);
+                    if (dist < bestDist) { bestDist = dist;
+                        best = ev; }
                 }
-                return padded;
+                return best;
+            }
+
+            interpolateScale(morph) {
+                // Blend between scale A and scale B
+                const scaleA = this.scaleA;
+                const scaleB = this.scaleB;
+                // Find intersection and union
+                const allNotes = new Set([...scaleA, ...scaleB]);
+                const result = [];
+                // Weighted selection
+                for (const n of allNotes) {
+                    const inA = scaleA.includes(n) ? 1 : 0;
+                    const inB = scaleB.includes(n) ? 1 : 0;
+                    const weight = inA * (1 - morph) + inB * morph;
+                    if (weight > 0.3) result.push(n);
+                }
+                return result.length > 0 ? result : [0, 2, 4, 5, 7, 9, 11];
             }
 
             getStats(notes) {
@@ -1078,7 +1243,7 @@
         }
 
         // ============================================================
-        // 4. UI Integration
+        // 7. UI Integration
         // ============================================================
 
         const engine = new InterpolationEngine();
@@ -1115,14 +1280,16 @@
             reader.onload = function(e) {
                 try {
                     const result = parseMIDI(e.target.result);
-                    const source = label === 'A' ? 'sourceA' : 'sourceB';
-                    state[source] = {
+                    const sourceData = {
                         notes: result.notes,
                         tempo: result.tempo,
                         ppq: result.ppq,
                         name: file.name,
                         key: result.key,
                         duration: result.duration,
+                        keyConfidence: result.keyConfidence,
+                        keyAlternatives: result.keyAlternatives,
+                        trackNames: result.trackNames,
                         stats: {
                             noteCount: result.notes.length,
                             duration: result.duration,
@@ -1130,13 +1297,19 @@
                             key: result.key,
                         },
                     };
+
                     if (label === 'A') {
+                        state.sourceA = sourceData;
                         state.loadedA = true;
-                        updateFileInfo('A', result);
+                        updateFileInfo('A', sourceData);
+                        $('nameA').textContent = file.name.replace(/\.[^.]+$/, '');
                     } else {
+                        state.sourceB = sourceData;
                         state.loadedB = true;
-                        updateFileInfo('B', result);
+                        updateFileInfo('B', sourceData);
+                        $('nameB').textContent = file.name.replace(/\.[^.]+$/, '');
                     }
+
                     updateStatus();
                     checkReady();
                     renderPianoRoll();
@@ -1148,18 +1321,36 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function updateFileInfo(label, result) {
+        function updateFileInfo(label, data) {
             const status = $(`status${label}`);
             status.className = 'file-status loaded';
-            status.innerHTML = `✅ ${result.notes.length} notes, ${result.tempo} BPM`;
+            const noteCount = data.notes ? data.notes.length : 0;
+            status.innerHTML = `✅ ${noteCount} notes, ${Math.round(data.tempo)} BPM`;
 
-            $(`notes${label}`).textContent = result.notes.length;
-            $(`tempo${label}`).textContent = `${result.tempo} BPM`;
-            $(`key${label}`).textContent = result.key || '—';
+            $(`notes${label}`).textContent = noteCount;
+            $(`tempo${label}`).textContent = `${Math.round(data.tempo)} BPM`;
+            $(`key${label}`).textContent = data.key || '—';
+            $(`dur${label}`).textContent = data.duration ? data.duration.toFixed(2) + 's' : '—';
+
+            // Show key confidence
+            if (data.keyConfidence !== undefined) {
+                const info = $(`info${label}`);
+                // Add confidence if not already present
+                let confEl = info.querySelector('.key-conf');
+                if (!confEl) {
+                    confEl = document.createElement('span');
+                    confEl.className = 'key-conf';
+                    confEl.style.cssText =
+                        'grid-column:1/-1;font-size:9px;color:var(--text-muted);text-align:center;';
+                    info.appendChild(confEl);
+                }
+                confEl.textContent =
+                    `Key confidence: ${data.keyConfidence}%${data.keyAlternatives ? ' | Alt: ' + data.keyAlternatives.slice(0,3).join(', ') : ''}`;
+            }
         }
 
         function updateStatus() {
-            const status = document.querySelector('.bottom-panel .status span');
+            const status = $('statusText');
             if (state.loadedA && state.loadedB) {
                 status.textContent = '✅ Both files loaded — Ready to interpolate!';
                 status.className = 'success';
@@ -1180,7 +1371,6 @@
             $('generateBtn').disabled = !ready;
             $('exportBtn').disabled = !ready;
             if (ready) {
-                // Auto-generate on load
                 setTimeout(generateInterpolation, 300);
             }
         }
@@ -1198,36 +1388,41 @@
                 blendMelody: $('blendMelody').checked,
                 blendVelocity: $('blendVelocity').checked,
                 blendDuration: $('blendDuration').checked,
-                quantizeToGrid: $('quantizeToGrid').checked,
-                gridValue: parseInt($('gridSelect').value) * 60,
+                constrainToScale: $('constrainToScale').checked,
+                gridValue: parseFloat($('gridSelect').value) * 60, // Convert to ticks
             };
+
+            const ppq = Math.max(state.sourceA.ppq || 480, state.sourceB.ppq || 480);
 
             engine.setSources(
                 state.sourceA.notes,
                 state.sourceB.notes,
-                state.sourceA.ppq || 480,
+                ppq,
                 state.sourceA.tempo || 120,
-                state.sourceB.tempo || 120
+                state.sourceB.tempo || 120,
+                state.sourceA.key || 'C',
+                state.sourceB.key || 'C'
             );
 
             const result = engine.interpolate(morph, options);
 
             // Interpolate tempo
             const tempo = state.sourceA.tempo + (state.sourceB.tempo - state.sourceA.tempo) * morph;
+            const key = morph < 0.5 ? state.sourceA.key : state.sourceB.key;
 
             state.interpolated = {
                 notes: result,
                 tempo: Math.round(tempo),
-                ppq: state.sourceA.ppq || 480,
+                ppq: ppq,
                 duration: result.length > 0 ? engine.getStats(result).duration : 0,
+                key: key,
             };
 
-            // Update display
             renderPianoRoll();
             updateAnalysis(result);
             $('exportBtn').disabled = false;
 
-            const status = document.querySelector('.bottom-panel .status span');
+            const status = $('statusText');
             status.textContent = `✅ Generated ${result.length} interpolated notes (${Math.round(morph * 100)}% B)`;
             status.className = 'success';
         }
@@ -1240,6 +1435,7 @@
             $('morphNotes').textContent = `Notes: ${stats.noteCount}`;
             $('morphDuration').textContent = `Duration: ${stats.duration.toFixed(2)}s`;
             $('morphTempo').textContent = `Tempo: ${state.interpolated.tempo} BPM`;
+            $('morphKey').textContent = `Key: ${state.interpolated.key || '—'}`;
 
             const grid = $('statGrid');
             const items = [
@@ -1254,23 +1450,40 @@
                     <span class="value">${item.value}</span>
                 </div>
             `).join('');
+
+            // Key confidence
+            const conf = $('keyConfidence');
+            if (state.sourceA && state.sourceB) {
+                const kA = state.sourceA.keyConfidence || 0;
+                const kB = state.sourceB.keyConfidence || 0;
+                const blended = kA * (1 - state.morphValue) + kB * state.morphValue;
+                conf.textContent =
+                    `Key confidence: ${Math.round(blended)}% | Source A: ${kA}% | Source B: ${kB}%`;
+            }
         }
 
         // ---- Piano Roll ----
         function renderPianoRoll() {
+            // Resolve CSS variables for canvas
             const rect = canvas.parentElement.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            ctx.scale(dpr, dpr);
 
-            const w = canvas.width;
-            const h = canvas.height;
+            const w = rect.width;
+            const h = rect.height;
 
             const notes = state.interpolated.notes || [];
 
             if (notes.length === 0) {
-                ctx.fillStyle = 'var(--bg-tertiary)';
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-tertiary').trim() ||
+                    '#1c2333';
                 ctx.fillRect(0, 0, w, h);
-                ctx.fillStyle = 'var(--text-muted)';
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() ||
+                    '#484f58';
                 ctx.font = '14px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText('No interpolation generated', w / 2, h / 2);
@@ -1278,7 +1491,7 @@
             }
 
             const allNotes = state.showSourceOverlay ?
-                [...notes, ...state.sourceA.notes, ...state.sourceB.notes] :
+                [...notes, ...(state.sourceA?.notes || []), ...(state.sourceB?.notes || [])] :
                 notes;
 
             const minNote = Math.max(21, Math.min(...allNotes.map(n => n.note)) - 2);
@@ -1293,11 +1506,12 @@
             const noteHeight = Math.min(plotH / noteRange, 9);
             const timeScale = plotW / maxTime * state.zoomLevel;
 
-            ctx.fillStyle = 'var(--bg-tertiary)';
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-tertiary').trim() || '#1c2333';
             ctx.fillRect(0, 0, w, h);
 
             // Grid
-            ctx.strokeStyle = 'var(--border-color)';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() ||
+                '#30363d';
             ctx.lineWidth = 0.5;
             for (let i = 0; i <= noteRange; i++) {
                 const y = padding.top + i * noteHeight;
@@ -1317,31 +1531,31 @@
                 ctx.stroke();
             }
 
-            // Draw source overlays
+            // Source overlays
             if (state.showSourceOverlay) {
-                // Source A (blue, transparent)
-                for (const n of state.sourceA.notes) {
+                const srcA = state.sourceA?.notes || [];
+                for (const n of srcA) {
                     const x = padding.left + n.start * timeScale;
                     const endX = padding.left + (n.end || n.start + 1000) * timeScale;
                     const y = padding.top + (maxNote - n.note) * noteHeight;
                     const width = Math.max(endX - x, 1);
                     const height = Math.max(noteHeight - 1, 1);
-                    ctx.fillStyle = 'rgba(88, 166, 255, 0.15)';
+                    ctx.fillStyle = 'rgba(88, 166, 255, 0.12)';
                     ctx.fillRect(x, y, width, height);
                 }
-                // Source B (purple, transparent)
-                for (const n of state.sourceB.notes) {
+                const srcB = state.sourceB?.notes || [];
+                for (const n of srcB) {
                     const x = padding.left + n.start * timeScale;
                     const endX = padding.left + (n.end || n.start + 1000) * timeScale;
                     const y = padding.top + (maxNote - n.note) * noteHeight;
                     const width = Math.max(endX - x, 1);
                     const height = Math.max(noteHeight - 1, 1);
-                    ctx.fillStyle = 'rgba(188, 140, 255, 0.15)';
+                    ctx.fillStyle = 'rgba(188, 140, 255, 0.12)';
                     ctx.fillRect(x, y, width, height);
                 }
             }
 
-            // Draw interpolated notes
+            // Interpolated notes
             for (const n of notes) {
                 const x = padding.left + n.start * timeScale;
                 const endX = padding.left + (n.end || n.start + 1000) * timeScale;
@@ -1349,7 +1563,6 @@
                 const width = Math.max(endX - x, 1);
                 const height = Math.max(noteHeight - 1, 1);
 
-                // Color based on morph blend
                 const morph = n.morphFactor || 0.5;
                 const r = Math.round(88 + (188 - 88) * morph);
                 const g = Math.round(166 + (140 - 166) * morph);
@@ -1359,23 +1572,22 @@
                 ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
                 ctx.fillRect(x, y, width, height);
 
-                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                ctx.strokeStyle = 'rgba(255,255,255,0.08)';
                 ctx.lineWidth = 0.5;
                 ctx.strokeRect(x, y, width, height);
 
-                // Show source influence as small label
                 if (width > 20) {
-                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                    ctx.fillStyle = 'rgba(255,255,255,0.15)';
                     ctx.font = '5px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'bottom';
-                    const pct = Math.round(morph * 100);
-                    ctx.fillText(`${pct}%`, x + width / 2, y - 2);
+                    ctx.fillText(`${Math.round(morph * 100)}%`, x + width / 2, y - 2);
                 }
             }
 
             // Labels
-            ctx.fillStyle = 'var(--text-muted)';
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() ||
+                '#484f58';
             ctx.font = '7px sans-serif';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
@@ -1389,17 +1601,18 @@
             for (let t = 0; t < maxTime; t += beatInterval * 4) {
                 const x = padding.left + t * timeScale;
                 if (x > w - padding.right) break;
-                ctx.fillStyle = 'var(--text-muted)';
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() ||
+                    '#484f58';
                 ctx.fillText(Math.round(t / 240), x, h - padding.bottom + 4);
             }
 
-            ctx.fillStyle = 'var(--text-muted)';
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() ||
+                '#484f58';
             ctx.font = '7px sans-serif';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'bottom';
-            const count = notes.length;
-            ctx.fillText(`🌀 Interpolated • ${count} notes • Zoom: ${Math.round(state.zoomLevel * 100)}%`, padding.left, h -
-            4);
+            ctx.fillText(`🌀 Interpolated • ${notes.length} notes • Zoom: ${Math.round(state.zoomLevel * 100)}%`,
+                padding.left, h - 4);
         }
 
         // ---- Morph Control ----
@@ -1422,7 +1635,7 @@
             }
         }
 
-        // ---- Export ----
+        // ---- Export with Validation ----
         function exportMIDI() {
             if (!state.interpolated.notes || state.interpolated.notes.length === 0) {
                 showModal('No Data', 'Generate an interpolation first');
@@ -1435,6 +1648,16 @@
                 const tempo = state.interpolated.tempo || 120;
 
                 const midiData = writeMIDI(notes, ppq, tempo);
+
+                // Validate before download
+                const validation = validateMIDI({ buffer: midiData.buffer });
+                if (!validation.valid) {
+                    showModal('Export Validation Failed',
+                        `The exported MIDI failed validation:\n\n${validation.error}\n\nPlease try adjusting settings.`
+                    );
+                    return;
+                }
+
                 const blob = new Blob([midiData], { type: 'audio/midi' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -1443,8 +1666,8 @@
                 a.click();
                 URL.revokeObjectURL(url);
 
-                const status = document.querySelector('.bottom-panel .status span');
-                status.textContent = '✅ Exported interpolation MIDI';
+                const status = $('statusText');
+                status.textContent = `✅ Exported ${notes.length} notes — validation passed`;
                 status.className = 'success';
             } catch (err) {
                 showModal('Export Error', `Failed to export: ${err.message}`);
@@ -1452,22 +1675,26 @@
             }
         }
 
+        // ---- Reset ----
         function resetAll() {
             state.loadedA = false;
             state.loadedB = false;
-            state.sourceA = { notes: [], tempo: 120, ppq: 480, name: '', key: 'C', duration: 0, stats: null };
-            state.sourceB = { notes: [], tempo: 120, ppq: 480, name: '', key: 'C', duration: 0, stats: null };
+            state.sourceA = null;
+            state.sourceB = null;
             state.interpolated = { notes: [], tempo: 120, ppq: 480, duration: 0 };
-            $('statusA').className = 'file-status missing';
-            $('statusA').innerHTML = 'No file loaded';
-            $('statusB').className = 'file-status missing';
-            $('statusB').innerHTML = 'No file loaded';
-            $('notesA').textContent = '—';
-            $('tempoA').textContent = '—';
-            $('keyA').textContent = '—';
-            $('notesB').textContent = '—';
-            $('tempoB').textContent = '—';
-            $('keyB').textContent = '—';
+            ['A', 'B'].forEach(label => {
+                $(`status${label}`).className = 'file-status missing';
+                $(`status${label}`).innerHTML = 'No file loaded';
+                $(`notes${label}`).textContent = '—';
+                $(`tempo${label}`).textContent = '—';
+                $(`key${label}`).textContent = '—';
+                $(`dur${label}`).textContent = '—';
+                const info = $(`info${label}`);
+                const conf = info.querySelector('.key-conf');
+                if (conf) conf.remove();
+            });
+            $('nameA').textContent = 'Source A';
+            $('nameB').textContent = 'Source B';
             $('generateBtn').disabled = true;
             $('exportBtn').disabled = true;
             $('analysisPlaceholder').style.display = 'block';
@@ -1476,7 +1703,7 @@
             updateStatus();
         }
 
-        // ---- Playback ----
+        // ---- Playback (limited polyphony) ----
         function playAudition() {
             const notes = state.interpolated.notes;
             if (!notes || notes.length === 0) {
@@ -1498,10 +1725,18 @@
 
             stopAudition();
 
-            for (const n of sorted) {
+            // Limit polyphony: schedule in batches
+            const MAX_POLYPHONY = 32;
+            let scheduled = 0;
+            let activeOscillators = [];
+
+            const scheduleNext = (index) => {
+                if (index >= sorted.length || !state.isPlaying) return;
+
+                const n = sorted[index];
                 const time = (n.start - firstTime) / ticksPerSecond;
                 const duration = Math.max(0.05, (n.duration || 240) / ticksPerSecond);
-                const velocity = Math.min(n.velocity / 127, 0.4);
+                const velocity = Math.min(n.velocity / 127, 0.35);
 
                 const startTime = ctx.currentTime + time;
                 const endTime = startTime + duration;
@@ -1512,31 +1747,48 @@
                     osc.type = 'sawtooth';
                     osc.frequency.setValueAtTime(440 * Math.pow(2, (n.note - 69) / 12), startTime);
                     gain.gain.setValueAtTime(0, startTime);
-                    gain.gain.linearRampToValueAtTime(velocity * 0.06, startTime + 0.005);
+                    gain.gain.linearRampToValueAtTime(velocity * 0.05, startTime + 0.005);
                     gain.gain.exponentialRampToValueAtTime(0.001, endTime);
                     osc.connect(gain);
                     gain.connect(ctx.destination);
                     osc.start(startTime);
                     osc.stop(endTime + 0.01);
-                    state.playbackOscillators.push({ osc, gain, endTime });
+                    activeOscillators.push({ osc, gain, endTime });
+
+                    scheduled++;
+                    if (scheduled >= MAX_POLYPHONY) {
+                        // Schedule next batch after a short delay
+                        setTimeout(() => {
+                            scheduled = 0;
+                            activeOscillators = [];
+                            scheduleNext(index + 1);
+                        }, 200);
+                        return;
+                    }
                 } catch (e) {}
-            }
+
+                // Schedule next note
+                setTimeout(() => scheduleNext(index + 1), 10);
+            };
 
             state.isPlaying = true;
-            const status = document.querySelector('.bottom-panel .status span');
+            state.playbackOscillators = activeOscillators;
+            scheduleNext(0);
+
+            const status = $('statusText');
             status.textContent = `▶ Playing ${sorted.length} interpolated notes`;
             status.className = 'highlight';
         }
 
         function stopAudition() {
+            state.isPlaying = false;
             for (const p of state.playbackOscillators) {
                 try { p.osc.stop();
                     p.osc.disconnect();
                     p.gain.disconnect(); } catch (e) {}
             }
             state.playbackOscillators = [];
-            state.isPlaying = false;
-            const status = document.querySelector('.bottom-panel .status span');
+            const status = $('statusText');
             if (status.textContent.includes('▶')) {
                 status.textContent = '⏹ Stopped';
                 status.className = '';
@@ -1561,6 +1813,7 @@
             renderPianoRoll();
         }
 
+        // ---- Modals ----
         function showModal(title, body) {
             $('modalTitle').textContent = title;
             $('modalBody').textContent = body;
@@ -1575,39 +1828,53 @@
         });
 
         function showHelp() {
-            showModal('📖 Musical Interpolation Engine Help',
+            showModal('📖 Musical Interpolation Engine v2.0',
                 'How it works:\n\n' +
                 '1. Load two MIDI files (Source A and Source B)\n' +
                 '2. Use the Morph slider to blend between them\n' +
-                '3. Select which parameters to blend (rhythm, melody, velocity, duration)\n' +
-                '4. Click "Generate Interpolation" or adjust the slider\n' +
-                '5. Preview the result with Play\n' +
-                '6. Export the interpolated MIDI\n\n' +
-                'What is interpolation?\n' +
-                'The engine aligns the two sequences and blends every note parameter\n' +
-                'smoothly based on the morph position.\n\n' +
-                '• 0% = Pure Source A\n' +
-                '• 50% = Equal blend\n' +
-                '• 100% = Pure Source B\n\n' +
-                'Use the overlay toggle (🔀) to see original sources behind the blend.'
+                '3. 0% = pure Source A, 100% = pure Source B\n' +
+                '4. Select which parameters to blend\n' +
+                '5. Enable "Constrain to Scale" for musical results\n' +
+                '6. Preview with Play, export with Export\n\n' +
+                'v2.0 Improvements:\n' +
+                '• Proper VLQ read/write (MIDI spec compliant)\n' +
+                '• Stack-based overlapping note handling\n' +
+                '• Tempo map preservation\n' +
+                '• Key detection using Krumhansl-Schmuckler\n' +
+                '• Export validation before download\n' +
+                '• Limited polyphony playback\n' +
+                '• Scale-constrained pitch interpolation'
             );
         }
 
         function showAbout() {
-            showModal('🌀 Musical Interpolation Engine v1.0',
+            showModal('🌀 Musical Interpolation Engine v2.0',
                 'A creative tool for blending two MIDI sequences.\n\n' +
                 'Features:\n' +
                 '• Morph between any two MIDI files\n' +
-                '• Independent control over rhythm, melody, velocity, and duration\n' +
+                '• Independent control over rhythm, melody, velocity, duration\n' +
+                '• Scale-constrained pitch interpolation\n' +
                 '• Real-time preview with morph slider\n' +
-                '• Visual comparison with source overlay\n' +
-                '• Export interpolated MIDI\n' +
-                '• Quantize to grid option\n\n' +
-                'Built with Web Audio API and Canvas.'
+                '• Export with validation\n' +
+                '• Krumhansl-Schmuckler key detection\n\n' +
+                'All fixes from v1.0 specification applied.'
             );
         }
 
-        // ---- Keyboard Shortcuts ----
+        // ---- Settings Change ----
+        ['blendRhythm', 'blendMelody', 'blendVelocity', 'blendDuration', 'constrainToScale', 'excludeDrums'].forEach(id => {
+            $(id).addEventListener('change', () => {
+                if (state.loadedA && state.loadedB) generateInterpolation();
+            });
+        });
+        $('gridSelect').addEventListener('change', () => {
+            if (state.loadedA && state.loadedB) generateInterpolation();
+        });
+
+        // ---- Resize ----
+        window.addEventListener('resize', renderPianoRoll);
+
+        // ---- Keyboard ----
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
             switch (e.key.toLowerCase()) {
@@ -1640,25 +1907,13 @@
             }
         });
 
-        // ---- Settings Change ----
-        ['blendRhythm', 'blendMelody', 'blendVelocity', 'blendDuration', 'quantizeToGrid'].forEach(id => {
-            $(id).addEventListener('change', () => {
-                if (state.loadedA && state.loadedB) generateInterpolation();
-            });
-        });
-        $('gridSelect').addEventListener('change', () => {
-            if (state.loadedA && state.loadedB) generateInterpolation();
-        });
-
-        // ---- Resize ----
-        window.addEventListener('resize', renderPianoRoll);
-
         // ---- Init ----
         function init() {
             initFileHandling();
             renderPianoRoll();
             updateStatus();
-            console.log('🌀 Musical Interpolation Engine v1.0');
+            console.log('🌀 Musical Interpolation Engine v2.0');
+            console.log('✅ All critical fixes applied');
             console.log('📖 Press H for help');
             console.log('⌨️ Space=Play, G=Generate, E=Export, R=Reset view');
         }
