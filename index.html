@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Interpolation Engine v2.0</title>
+    <title>Musical Interpolation Engine v2.1</title>
     <style>
         /* ===== CSS VARIABLES & RESET ===== */
         :root {
@@ -55,7 +55,6 @@
             background: var(--border-color);
         }
 
-        /* ===== HEADER ===== */
         .header {
             grid-column: 1 / -1;
             background: var(--bg-secondary);
@@ -98,7 +97,6 @@
         .btn-icon:hover { background: var(--bg-tertiary); color: var(--text-primary); }
         .btn-icon.active { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
 
-        /* ===== LEFT PANEL ===== */
         .left-panel {
             background: var(--bg-secondary);
             padding: 12px;
@@ -167,7 +165,6 @@
         .color-dot.b { background: var(--accent-purple); }
         .color-dot.morph { background: var(--accent-teal); }
 
-        /* ===== CENTER PANEL ===== */
         .center-panel {
             background: var(--bg-secondary);
             position: relative;
@@ -201,7 +198,6 @@
         .piano-roll-controls button:hover { background: var(--bg-card); color: var(--text-primary); }
         .piano-roll-controls .sep { color: var(--border-color); padding: 0 2px; }
 
-        /* ===== RIGHT PANEL ===== */
         .right-panel {
             background: var(--bg-secondary);
             padding: 12px;
@@ -321,7 +317,6 @@
         .action-btn.purple { background: var(--accent-purple); color: white; }
         .action-btn.purple:hover { background: #a77cde; }
 
-        /* ===== BOTTOM PANEL ===== */
         .bottom-panel {
             background: var(--bg-secondary);
             grid-column: 2 / -1;
@@ -362,7 +357,6 @@
         .audition-controls button.primary { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
         .audition-controls button.primary:hover { background: #4a8fd8; }
 
-        /* ===== MODAL ===== */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -415,7 +409,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="header-left">
-                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v2.0</span></span></div>
+                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v2.1</span></span></div>
             </div>
             <div class="header-actions">
                 <button class="btn-icon" onclick="showHelp()">📖</button>
@@ -574,13 +568,12 @@
 
     <script>
         // ============================================================
-        // Musical Interpolation Engine v2.0
-        // All critical fixes applied
+        // Musical Interpolation Engine v2.1 - All Fixes Applied
         // ============================================================
 
         // ---- State ----
         const state = {
-            sourceA: null, // { notes, tempo, ppq, name, key, duration, stats }
+            sourceA: null,
             sourceB: null,
             interpolated: { notes: [], tempo: 120, ppq: 480, duration: 0 },
             morphValue: 0.5,
@@ -632,7 +625,7 @@
         }
 
         // ============================================================
-        // 2. MIDI Parser — Stack-based overlap handling, tempo map
+        // 2. MIDI Parser — Stack-based overlap, tempo map
         // ============================================================
 
         function parseMIDI(arrayBuffer) {
@@ -696,7 +689,7 @@
                 currentTick = 0,
                 runningStatus = null;
             const notes = [];
-            const activeNotes = []; // Stack for overlapping notes
+            const activeNotes = [];
             let maxTime = 0;
             let tempo = null;
             let trackName = '';
@@ -755,7 +748,6 @@
                     const noteId = state.noteIdCounter++;
 
                     if (type === 0x9 && velocity > 0) {
-                        // Note on — push to stack
                         activeNotes.push({
                             id: noteId,
                             track: trackIndex,
@@ -765,7 +757,6 @@
                             velocity: velocity,
                         });
                     } else {
-                        // Note off — find matching active note (stack LIFO for overlaps)
                         let found = false;
                         for (let i = activeNotes.length - 1; i >= 0; i--) {
                             if (activeNotes[i].note === note && activeNotes[i].channel === channel) {
@@ -785,7 +776,6 @@
                             }
                         }
                         if (!found) {
-                            // Note off without matching on — create zero-duration note
                             notes.push({
                                 id: noteId,
                                 track: trackIndex,
@@ -806,7 +796,6 @@
                 }
             }
 
-            // Close any remaining active notes
             for (const active of activeNotes) {
                 notes.push({
                     id: active.id,
@@ -825,13 +814,12 @@
         }
 
         // ============================================================
-        // 3. Key Detection — Krumhansl-Schmuckler Profile
+        // 3. Key Detection — Krumhansl-Schmuckler
         // ============================================================
 
         function detectKeyKrumhansl(notes) {
             if (notes.length === 0) return { name: 'C', confidence: 0, alternatives: [] };
 
-            // Krumhansl-Schmuckler key profiles (major and minor)
             const ksMajor = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
             const ksMinor = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
 
@@ -845,7 +833,6 @@
                 }
             }
 
-            // Normalise
             const total = durationWeighted.reduce((a, b) => a + b, 0);
             if (total === 0) return { name: 'C', confidence: 0, alternatives: [] };
             for (let i = 0; i < 12; i++) durationWeighted[i] /= total;
@@ -856,36 +843,24 @@
             const alternatives = [];
 
             for (let root = 0; root < 12; root++) {
-                // Major
-                let scoreMajor = 0;
+                let scoreMajor = 0,
+                    scoreMinor = 0;
                 for (let i = 0; i < 12; i++) {
                     scoreMajor += durationWeighted[(root + i) % 12] * ksMajor[i];
-                }
-                // Minor
-                let scoreMinor = 0;
-                for (let i = 0; i < 12; i++) {
                     scoreMinor += durationWeighted[(root + i) % 12] * ksMinor[i];
                 }
-
                 const name = noteNames[root];
                 alternatives.push({ name, major: scoreMajor, minor: scoreMinor });
 
-                if (scoreMajor > bestScore) {
-                    bestScore = scoreMajor;
+                if (scoreMajor > bestScore) { bestScore = scoreMajor;
                     bestKey = name;
-                    bestMode = 'major';
-                }
-                if (scoreMinor > bestScore) {
-                    bestScore = scoreMinor;
+                    bestMode = 'major'; }
+                if (scoreMinor > bestScore) { bestScore = scoreMinor;
                     bestKey = name + 'm';
-                    bestMode = 'minor';
-                }
+                    bestMode = 'minor'; }
             }
 
-            // Sort alternatives by score
             alternatives.sort((a, b) => Math.max(b.major, b.minor) - Math.max(a.major, a.minor));
-
-            // Normalise confidence to 0-100
             const confidence = Math.min(100, Math.max(0, (bestScore + 1) * 50));
 
             return {
@@ -897,24 +872,21 @@
         }
 
         // ============================================================
-        // 4. MIDI Writer — Note-off before note-on at same tick
+        // 4. MIDI Writer — Note-off before note-on
         // ============================================================
 
         function writeMIDI(notes, ppq, tempo) {
             const events = [];
             for (const n of notes) {
-                // Skip orphan/zero-duration notes
                 if (n.orphan || n.duration < 1) continue;
                 events.push({ tick: n.start, type: 'on', note: n.note, vel: n.velocity || 64, ch: n.channel || 0 });
                 events.push({ tick: n.end || n.start + 240, type: 'off', note: n.note, vel: 0, ch: n.channel || 0 });
             }
-            // Sort: note-off BEFORE note-on at identical ticks
             events.sort((a, b) => {
                 if (a.tick !== b.tick) return a.tick - b.tick;
                 return a.type === 'off' ? -1 : 1;
             });
 
-            // Header
             const header = new Uint8Array(14);
             const view = new DataView(header.buffer);
             header.set([0x4D, 0x54, 0x68, 0x64], 0);
@@ -923,11 +895,9 @@
             view.setUint16(10, 1);
             view.setUint16(12, ppq);
 
-            // Track
             const trackData = [];
             let currentTick = 0;
 
-            // Tempo
             const tempoMicros = Math.round(60000000 / tempo);
             trackData.push(0x00, 0xFF, 0x51, 0x03);
             trackData.push((tempoMicros >> 16) & 0xFF);
@@ -963,7 +933,7 @@
         }
 
         // ============================================================
-        // 5. MIDI Validation — Round-trip check
+        // 5. Export Validation
         // ============================================================
 
         function validateMIDI(midiData) {
@@ -978,7 +948,7 @@
         }
 
         // ============================================================
-        // 6. Interpolation Engine — Timeline-based alignment
+        // 6. Interpolation Engine — Timeline-based, robust
         // ============================================================
 
         class InterpolationEngine {
@@ -995,8 +965,6 @@
             }
 
             setSources(notesA, notesB, ppq, tempoA, tempoB, keyA, keyB) {
-                this.notesA = this.filterNotes(notesA);
-                this.notesB = this.filterNotes(notesB);
                 this.ppq = ppq || 480;
                 this.tempoA = tempoA || 120;
                 this.tempoB = tempoB || 120;
@@ -1004,10 +972,11 @@
                 this.keyB = keyB || 'C';
                 this.scaleA = this.getScale(keyA);
                 this.scaleB = this.getScale(keyB);
+                this.notesA = this.filterNotes(notesA);
+                this.notesB = this.filterNotes(notesB);
             }
 
             filterNotes(notes) {
-                // Exclude channel 10 (drums) if option is on
                 const excludeDrums = $('#excludeDrums').checked;
                 return notes.filter(n => {
                     if (excludeDrums && n.channel === 9) return false;
@@ -1042,11 +1011,14 @@
                 const notesA = this.notesA;
                 const notesB = this.notesB;
 
-                if (notesA.length === 0 || notesB.length === 0) return [];
+                if (notesA.length === 0 || notesB.length === 0) {
+                    console.warn('One or both note sets are empty');
+                    return [];
+                }
 
-                // Normalise both sequences to start at 0
-                const startA = notesA.length > 0 ? notesA[0].start : 0;
-                const startB = notesB.length > 0 ? notesB[0].start : 0;
+                // Normalise to start at 0
+                const startA = notesA[0].start;
+                const startB = notesB[0].start;
 
                 const normA = notesA.map(n => ({
                     ...n,
@@ -1062,36 +1034,36 @@
                     duration: n.duration || 240,
                 }));
 
-                // Align by beat/time — create timeline
                 const maxDurA = Math.max(...normA.map(n => n.end || n.start + 240));
                 const maxDurB = Math.max(...normB.map(n => n.end || n.start + 240));
                 const duration = Math.max(maxDurA, maxDurB);
 
-                // Create time-aligned event lists
                 const eventsA = this.notesToEvents(normA);
                 const eventsB = this.notesToEvents(normB);
 
-                // Interpolate by time grid
-                const result = [];
-                const grid = gridValue > 0 ? gridValue : 60; // fallback
+                if (eventsA.length === 0 || eventsB.length === 0) {
+                    console.warn('Event lists are empty after conversion');
+                    return [];
+                }
 
-                // Use beat-based alignment: create events at regular intervals
+                const grid = gridValue > 0 ? gridValue : 60;
                 const step = grid;
-                const numSteps = Math.ceil(duration / step) + 1;
+                const numSteps = Math.max(2, Math.ceil(duration / step));
+
+                const result = [];
 
                 for (let i = 0; i < numSteps; i++) {
                     const time = i * step;
 
-                    // Find closest events in A and B
                     const evA = this.findClosestEvent(eventsA, time);
                     const evB = this.findClosestEvent(eventsB, time);
 
-                    if (!evA && !evB) continue;
+                    if (!evA || !evB) continue;
 
-                    const a = evA || evB;
-                    const b = evB || evA;
+                    const a = evA;
+                    const b = evB;
 
-                    // Interpolate parameters
+                    // Interpolate
                     let note = a.note;
                     let start = time;
                     let end = time + (a.duration || 240);
@@ -1101,12 +1073,10 @@
                     if (blendMelody) {
                         const pitchDiff = b.note - a.note;
                         note = Math.round(a.note + pitchDiff * morph);
-                        // Constrain to scale if enabled
                         if (constrainToScale) {
                             const scale = this.interpolateScale(morph);
                             const noteClass = note % 12;
                             if (!scale.includes(noteClass)) {
-                                // Find nearest scale degree
                                 let best = noteClass;
                                 let bestDist = 12;
                                 for (const s of scale) {
@@ -1132,6 +1102,9 @@
                         duration = Math.round((a.duration || 240) + durDiff * morph);
                         duration = Math.max(30, duration);
                         end = start + duration;
+                    } else {
+                        end = start + (a.duration || 240);
+                        duration = end - start;
                     }
 
                     if (blendVelocity) {
@@ -1140,7 +1113,6 @@
                         velocity = Math.max(1, Math.min(127, velocity));
                     }
 
-                    // Quantize to grid if enabled
                     if (gridValue > 0) {
                         start = Math.round(start / gridValue) * gridValue;
                         duration = Math.round(duration / gridValue) * gridValue;
@@ -1163,8 +1135,8 @@
                     });
                 }
 
-                // Remove overlapping notes (keep highest velocity)
-                const sorted = result.sort((a, b) => a.start - b.start);
+                // Remove overlapping same-pitch notes (keep highest velocity)
+                const sorted = result.sort((a, b) => a.start - b.start || a.note - b.note);
                 const cleaned = [];
                 for (const n of sorted) {
                     let overlap = false;
@@ -1174,7 +1146,6 @@
                             existing.start < n.end) {
                             overlap = true;
                             if (n.velocity > existing.velocity) {
-                                // Replace with higher velocity
                                 const idx = cleaned.indexOf(existing);
                                 cleaned[idx] = n;
                             }
@@ -1208,17 +1179,17 @@
                     if (dist < bestDist) { bestDist = dist;
                         best = ev; }
                 }
+                // Only return if within reasonable distance (e.g., 4 grid steps)
+                const maxDist = 4 * (events[0].duration || 60);
+                if (bestDist > maxDist) return null;
                 return best;
             }
 
             interpolateScale(morph) {
-                // Blend between scale A and scale B
                 const scaleA = this.scaleA;
                 const scaleB = this.scaleB;
-                // Find intersection and union
                 const allNotes = new Set([...scaleA, ...scaleB]);
                 const result = [];
-                // Weighted selection
                 for (const n of allNotes) {
                     const inA = scaleA.includes(n) ? 1 : 0;
                     const inB = scaleB.includes(n) ? 1 : 0;
@@ -1332,21 +1303,17 @@
             $(`key${label}`).textContent = data.key || '—';
             $(`dur${label}`).textContent = data.duration ? data.duration.toFixed(2) + 's' : '—';
 
-            // Show key confidence
-            if (data.keyConfidence !== undefined) {
-                const info = $(`info${label}`);
-                // Add confidence if not already present
-                let confEl = info.querySelector('.key-conf');
-                if (!confEl) {
-                    confEl = document.createElement('span');
-                    confEl.className = 'key-conf';
-                    confEl.style.cssText =
-                        'grid-column:1/-1;font-size:9px;color:var(--text-muted);text-align:center;';
-                    info.appendChild(confEl);
-                }
-                confEl.textContent =
-                    `Key confidence: ${data.keyConfidence}%${data.keyAlternatives ? ' | Alt: ' + data.keyAlternatives.slice(0,3).join(', ') : ''}`;
+            const info = $(`info${label}`);
+            let confEl = info.querySelector('.key-conf');
+            if (!confEl) {
+                confEl = document.createElement('span');
+                confEl.className = 'key-conf';
+                confEl.style.cssText =
+                    'grid-column:1/-1;font-size:9px;color:var(--text-muted);text-align:center;';
+                info.appendChild(confEl);
             }
+            confEl.textContent =
+                `Key confidence: ${data.keyConfidence || 0}%${data.keyAlternatives ? ' | Alt: ' + data.keyAlternatives.slice(0,3).join(', ') : ''}`;
         }
 
         function updateStatus() {
@@ -1371,60 +1338,78 @@
             $('generateBtn').disabled = !ready;
             $('exportBtn').disabled = !ready;
             if (ready) {
-                setTimeout(generateInterpolation, 300);
+                // Small delay to ensure DOM is ready
+                setTimeout(() => {
+                    try {
+                        generateInterpolation();
+                    } catch (e) {
+                        console.error('Auto-generation failed:', e);
+                        showModal('Generation Error', 'Failed to auto-generate: ' + e.message);
+                    }
+                }, 300);
             }
         }
 
-        // ---- Generate Interpolation ----
+        // ---- Generate Interpolation (with error handling) ----
         function generateInterpolation() {
             if (!state.loadedA || !state.loadedB) {
                 showModal('Info', 'Please load both MIDI files first');
                 return;
             }
 
-            const morph = state.morphValue;
-            const options = {
-                blendRhythm: $('blendRhythm').checked,
-                blendMelody: $('blendMelody').checked,
-                blendVelocity: $('blendVelocity').checked,
-                blendDuration: $('blendDuration').checked,
-                constrainToScale: $('constrainToScale').checked,
-                gridValue: parseFloat($('gridSelect').value) * 60, // Convert to ticks
-            };
+            if (!state.sourceA || !state.sourceB) {
+                showModal('Info', 'Source data missing. Please reload files.');
+                return;
+            }
 
-            const ppq = Math.max(state.sourceA.ppq || 480, state.sourceB.ppq || 480);
+            try {
+                const morph = state.morphValue;
+                const options = {
+                    blendRhythm: $('blendRhythm').checked,
+                    blendMelody: $('blendMelody').checked,
+                    blendVelocity: $('blendVelocity').checked,
+                    blendDuration: $('blendDuration').checked,
+                    constrainToScale: $('constrainToScale').checked,
+                    gridValue: parseFloat($('gridSelect').value) * 60 || 60,
+                };
 
-            engine.setSources(
-                state.sourceA.notes,
-                state.sourceB.notes,
-                ppq,
-                state.sourceA.tempo || 120,
-                state.sourceB.tempo || 120,
-                state.sourceA.key || 'C',
-                state.sourceB.key || 'C'
-            );
+                const ppq = Math.max(state.sourceA.ppq || 480, state.sourceB.ppq || 480);
 
-            const result = engine.interpolate(morph, options);
+                engine.setSources(
+                    state.sourceA.notes,
+                    state.sourceB.notes,
+                    ppq,
+                    state.sourceA.tempo || 120,
+                    state.sourceB.tempo || 120,
+                    state.sourceA.key || 'C',
+                    state.sourceB.key || 'C'
+                );
 
-            // Interpolate tempo
-            const tempo = state.sourceA.tempo + (state.sourceB.tempo - state.sourceA.tempo) * morph;
-            const key = morph < 0.5 ? state.sourceA.key : state.sourceB.key;
+                const result = engine.interpolate(morph, options);
 
-            state.interpolated = {
-                notes: result,
-                tempo: Math.round(tempo),
-                ppq: ppq,
-                duration: result.length > 0 ? engine.getStats(result).duration : 0,
-                key: key,
-            };
+                // Interpolate tempo
+                const tempo = state.sourceA.tempo + (state.sourceB.tempo - state.sourceA.tempo) * morph;
+                const key = morph < 0.5 ? state.sourceA.key : state.sourceB.key;
 
-            renderPianoRoll();
-            updateAnalysis(result);
-            $('exportBtn').disabled = false;
+                state.interpolated = {
+                    notes: result,
+                    tempo: Math.round(tempo),
+                    ppq: ppq,
+                    duration: result.length > 0 ? engine.getStats(result).duration : 0,
+                    key: key,
+                };
 
-            const status = $('statusText');
-            status.textContent = `✅ Generated ${result.length} interpolated notes (${Math.round(morph * 100)}% B)`;
-            status.className = 'success';
+                renderPianoRoll();
+                updateAnalysis(result);
+                $('exportBtn').disabled = false;
+
+                const status = $('statusText');
+                status.textContent = `✅ Generated ${result.length} interpolated notes (${Math.round(morph * 100)}% B)`;
+                status.className = 'success';
+            } catch (err) {
+                console.error('Generation error:', err);
+                showModal('Error', 'Failed to generate interpolation: ' + err.message);
+            }
         }
 
         function updateAnalysis(notes) {
@@ -1451,7 +1436,6 @@
                 </div>
             `).join('');
 
-            // Key confidence
             const conf = $('keyConfidence');
             if (state.sourceA && state.sourceB) {
                 const kA = state.sourceA.keyConfidence || 0;
@@ -1464,7 +1448,6 @@
 
         // ---- Piano Roll ----
         function renderPianoRoll() {
-            // Resolve CSS variables for canvas
             const rect = canvas.parentElement.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
             canvas.width = rect.width * dpr;
@@ -1725,7 +1708,6 @@
 
             stopAudition();
 
-            // Limit polyphony: schedule in batches
             const MAX_POLYPHONY = 32;
             let scheduled = 0;
             let activeOscillators = [];
@@ -1757,7 +1739,6 @@
 
                     scheduled++;
                     if (scheduled >= MAX_POLYPHONY) {
-                        // Schedule next batch after a short delay
                         setTimeout(() => {
                             scheduled = 0;
                             activeOscillators = [];
@@ -1767,7 +1748,6 @@
                     }
                 } catch (e) {}
 
-                // Schedule next note
                 setTimeout(() => scheduleNext(index + 1), 10);
             };
 
@@ -1828,7 +1808,7 @@
         });
 
         function showHelp() {
-            showModal('📖 Musical Interpolation Engine v2.0',
+            showModal('📖 Musical Interpolation Engine v2.1',
                 'How it works:\n\n' +
                 '1. Load two MIDI files (Source A and Source B)\n' +
                 '2. Use the Morph slider to blend between them\n' +
@@ -1836,19 +1816,17 @@
                 '4. Select which parameters to blend\n' +
                 '5. Enable "Constrain to Scale" for musical results\n' +
                 '6. Preview with Play, export with Export\n\n' +
-                'v2.0 Improvements:\n' +
-                '• Proper VLQ read/write (MIDI spec compliant)\n' +
-                '• Stack-based overlapping note handling\n' +
-                '• Tempo map preservation\n' +
-                '• Key detection using Krumhansl-Schmuckler\n' +
-                '• Export validation before download\n' +
-                '• Limited polyphony playback\n' +
-                '• Scale-constrained pitch interpolation'
+                'v2.1 Fixes:\n' +
+                '• Reliable auto-generation on load\n' +
+                '• Robust error handling with modal alerts\n' +
+                '• Fixed grid quantisation mapping\n' +
+                '• Improved event alignment\n' +
+                '• Better empty-result handling'
             );
         }
 
         function showAbout() {
-            showModal('🌀 Musical Interpolation Engine v2.0',
+            showModal('🌀 Musical Interpolation Engine v2.1',
                 'A creative tool for blending two MIDI sequences.\n\n' +
                 'Features:\n' +
                 '• Morph between any two MIDI files\n' +
@@ -1857,7 +1835,7 @@
                 '• Real-time preview with morph slider\n' +
                 '• Export with validation\n' +
                 '• Krumhansl-Schmuckler key detection\n\n' +
-                'All fixes from v1.0 specification applied.'
+                'All fixes from v2.0 specification applied.'
             );
         }
 
@@ -1912,7 +1890,7 @@
             initFileHandling();
             renderPianoRoll();
             updateStatus();
-            console.log('🌀 Musical Interpolation Engine v2.0');
+            console.log('🌀 Musical Interpolation Engine v2.1');
             console.log('✅ All critical fixes applied');
             console.log('📖 Press H for help');
             console.log('⌨️ Space=Play, G=Generate, E=Export, R=Reset view');
