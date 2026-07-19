@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Interpolation Engine v3.4</title>
+    <title>Musical Interpolation Engine v3.5</title>
     <style>
         /* ===== CSS VARIABLES & RESET ===== */
         :root {
@@ -436,7 +436,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="header-left">
-                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.4</span></span></div>
+                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.5</span></span></div>
             </div>
             <div class="header-actions">
                 <button class="btn-icon" onclick="showHelp()">📖</button>
@@ -621,7 +621,7 @@
 
     <script>
         // ============================================================
-        // Musical Interpolation Engine v3.4 - DOM-Decoupled
+        // Musical Interpolation Engine v3.5 - DOM-Decoupled
         // ============================================================
 
         // ---- State ----
@@ -1255,37 +1255,120 @@
             }
 
             buildRhythmTimeline(groupsA, groupsB, endA, endB, morph) {
-                if (morph <= 0) return groupsA.map(g => ({ norm: g.start / Math.max(1, endA), owner: 'A' }));
-                if (morph >= 1) return groupsB.map(g => ({ norm: g.start / Math.max(1, endB), owner: 'B' }));
+                // Build the morph only from attacks that really occur in A or B. The previous
+                // implementation filled a sparse selection with evenly-spaced synthetic attacks;
+                // those invented positions caused the audible out-of-step / stomping effect.
+                if (morph <= 0) return groupsA.map(g => ({ tick: g.start, norm: g.start / Math.max(1, endA), owner: 'A', groupA: g, groupB: null }));
+                if (morph >= 1) return groupsB.map(g => ({ tick: g.start, norm: g.start / Math.max(1, endB), owner: 'B', groupA: null, groupB: g }));
 
-                const candidates = [];
-                groupsA.forEach((g, i) => candidates.push({ norm: g.start / Math.max(1, endA), owner: 'A', keep: this.deterministicNoise(i, 11) > morph * 0.72 }));
-                groupsB.forEach((g, i) => candidates.push({ norm: g.start / Math.max(1, endB), owner: 'B', keep: this.deterministicNoise(i, 29) < morph * 0.72 + 0.28 }));
-                let kept = candidates.filter(c => c.keep).sort((a, b) => a.norm - b.norm);
+                const mergeTolerance = Math.max(3, Math.round(this.ppq / 24)); // about a 32nd-note triplet
+                const raw = [
+                    ...groupsA.map((g, i) => ({ tick: g.start, source: 'A', group: g, index: i })),
+                    ...groupsB.map((g, i) => ({ tick: g.start, source: 'B', group: g, index: i })),
+                ].sort((a, b) => a.tick - b.tick || a.source.localeCompare(b.source));
+
+                const clusters = [];
+                for (const item of raw) {
+                    const last = clusters[clusters.length - 1];
+                    if (!last || item.tick - last.maxTick > mergeTolerance) {
+                        clusters.push({ minTick: item.tick, maxTick: item.tick, items: [item] });
+                    } else {
+                        last.items.push(item);
+                        last.maxTick = item.tick;
+                    }
+                }
+
+                const candidates = clusters.map((cluster, index) => {
+                    const aItems = cluster.items.filter(x => x.source === 'A');
+                    const bItems = cluster.items.filter(x => x.source === 'B');
+                    const groupA = aItems.length ? aItems.reduce((best, x) => x.group.notes.length > best.notes.length ? x.group : best, aItems[0].group) : null;
+                    const groupB = bItems.length ? bItems.reduce((best, x) => x.group.notes.length > best.notes.length ? x.group : best, bItems[0].group) : null;
+                    const hasA = !!groupA, hasB = !!groupB;
+                    const contributionA = hasA ? 1 - morph : 0;
+                    const contributionB = hasB ? morph : 0;
+                    const strength = contributionA + contributionB;
+                    let tick;
+                    if (hasA && hasB) tick = Math.round((groupA.start * contributionA + groupB.start * contributionB) / Math.max(0.0001, strength));
+                    else tick = hasB ? groupB.start : groupA.start;
+                    const owner = contributionB > contributionA ? 'B' : 'A';
+                    // Shared attacks are structurally important. Source-only attacks fade in/out
+                    // deterministically as the slider moves, without changing on every playback.
+                    const keepProbability = hasA && hasB ? 1 : strength;
+                    const keep = this.deterministicNoise(index, 47) < keepProbability;
+                    return { tick, norm: tick / Math.max(1, Math.max(endA, endB)), owner, groupA, groupB, strength, keep, shared: hasA && hasB };
+                });
 
                 const desired = Math.max(1, Math.round(groupsA.length * (1 - morph) + groupsB.length * morph));
+                let kept = candidates.filter(c => c.keep || c.shared);
                 if (kept.length > desired) {
-                    const reduced = [];
-                    for (let i = 0; i < desired; i++) reduced.push(kept[Math.round(i * (kept.length - 1) / Math.max(1, desired - 1))]);
-                    kept = reduced;
+                    kept = kept
+                        .map((c, i) => ({ ...c, rank: c.strength + (c.shared ? 2 : 0) + this.deterministicNoise(i, 61) * 0.001 }))
+                        .sort((a, b) => b.rank - a.rank)
+                        .slice(0, desired)
+                        .sort((a, b) => a.tick - b.tick);
                 }
-                while (kept.length < desired) {
-                    const p = kept.length / Math.max(1, desired - 1);
-                    kept.push({ norm: p, owner: morph < 0.5 ? 'A' : 'B' });
-                    kept.sort((a, b) => a.norm - b.norm);
+                // Never invent missing attacks. If probabilistic fading selected too few, restore
+                // the strongest real source attacks only.
+                if (kept.length < desired) {
+                    const selected = new Set(kept);
+                    const extras = candidates.filter(c => !selected.has(c))
+                        .sort((a, b) => (b.strength + (b.shared ? 2 : 0)) - (a.strength + (a.shared ? 2 : 0)));
+                    kept.push(...extras.slice(0, desired - kept.length));
+                    kept.sort((a, b) => a.tick - b.tick);
+                }
+                return kept;
+            }
+
+            cleanAndGateNotes(notes, timeline, targetEnd) {
+                if (!notes.length) return [];
+                const starts = timeline.map(s => Math.max(0, Math.round(s.tick))).sort((a, b) => a - b);
+                const uniqueStarts = starts.filter((v, i) => i === 0 || v !== starts[i - 1]);
+
+                // Bound each generated attack by the following rhythmic attack. This prevents long
+                // source chord durations bleeding through short shuffled hits and creating mush.
+                for (const note of notes) {
+                    let next = targetEnd;
+                    for (const tick of uniqueStarts) {
+                        if (tick > note.start + 2) { next = tick; break; }
+                    }
+                    const gap = Math.max(1, next - note.start);
+                    const releaseGap = Math.max(2, Math.min(Math.round(this.ppq / 64), Math.round(gap * 0.08)));
+                    const gatedEnd = Math.max(note.start + 1, next - releaseGap);
+                    note.end = Math.min(note.end, gatedEnd, targetEnd);
+                    note.duration = Math.max(1, note.end - note.start);
                 }
 
-                // Merge near-identical attacks to prevent accidental machine-gun doubling.
-                const minGap = 1 / Math.max(8, desired * 2);
-                const merged = [];
-                for (const item of kept) {
-                    const prev = merged[merged.length - 1];
-                    if (prev && Math.abs(item.norm - prev.norm) < minGap) {
-                        prev.norm = (prev.norm + item.norm) / 2;
-                        prev.owner = morph >= 0.5 ? 'B' : 'A';
-                    } else merged.push({ ...item });
+                // Collapse near-identical same-onset duplicates while preserving true polyphony.
+                notes.sort((a, b) => a.start - b.start || a.note - b.note || b.velocity - a.velocity);
+                const deduped = [];
+                for (const note of notes) {
+                    const duplicate = deduped.findIndex(n => n.note === note.note && Math.abs(n.start - note.start) <= 2);
+                    if (duplicate >= 0) {
+                        const existing = deduped[duplicate];
+                        if (note.velocity > existing.velocity) deduped[duplicate] = note;
+                        else existing.end = Math.max(existing.end, note.end);
+                        deduped[duplicate].duration = deduped[duplicate].end - deduped[duplicate].start;
+                    } else deduped.push(note);
                 }
-                return merged;
+
+                // Resolve later overlaps of the same pitch. Chords are unaffected because pitches
+                // differ; only repeated identical notes are shortened before the next note-on.
+                const byPitch = new Map();
+                for (const note of deduped) {
+                    if (!byPitch.has(note.note)) byPitch.set(note.note, []);
+                    byPitch.get(note.note).push(note);
+                }
+                for (const pitchNotes of byPitch.values()) {
+                    pitchNotes.sort((a, b) => a.start - b.start);
+                    for (let i = 0; i < pitchNotes.length - 1; i++) {
+                        const current = pitchNotes[i], next = pitchNotes[i + 1];
+                        if (current.end >= next.start) {
+                            current.end = Math.max(current.start + 1, next.start - 1);
+                            current.duration = current.end - current.start;
+                        }
+                    }
+                }
+                return deduped.filter(n => n.duration >= 1).sort((a, b) => a.start - b.start || a.note - b.note);
             }
 
             snapPitchToScale(note, scale) {
@@ -1400,18 +1483,20 @@
                 // choosePitch(), and interpolateScale() below are already properly morph-sensitive
                 // (confirmed by testing), so we always route through them instead of special-casing.
                 const timeline = blendRhythm ? this.buildRhythmTimeline(groupsA, groupsB, endA, endB, morph)
-                    : groupsA.map(g => ({ norm: g.start / Math.max(1, endA), owner: 'A' }));
+                    : groupsA.map(g => ({ tick: g.start, norm: g.start / Math.max(1, endA), owner: 'A', groupA: g, groupB: null }));
                 const scale = constrainToScale ? this.interpolateScale(morph) : null;
                 const swingA = this.estimateSwing(groupsA), swingB = this.estimateSwing(groupsB);
                 const swingOffset = swingA.amount * (1 - morph) + swingB.amount * morph;
                 const result = [], previousVoices = [];
 
                 timeline.forEach((slot, slotIndex) => {
-                    const groupA = this.nearestGroup(groupsA, slot.norm, endA);
-                    const groupB = this.nearestGroup(groupsB, slot.norm, endB);
+                    // Prefer groups explicitly attached to this real onset cluster; only use the
+                    // nearest group for the missing side of the morph.
+                    const groupA = slot.groupA || this.nearestGroup(groupsA, slot.norm, endA);
+                    const groupB = slot.groupB || this.nearestGroup(groupsB, slot.norm, endB);
                     if (!groupA || !groupB) return;
                     const dominant = slot.owner === 'B' ? groupB : groupA;
-                    let start = Math.round(slot.norm * targetEnd);
+                    let start = Math.max(0, Math.round(slot.tick));
 
                     if (gridValue > 0) {
                         const straight = Math.round(start / gridValue) * gridValue;
@@ -1447,15 +1532,7 @@
                     }
                 });
 
-                result.sort((a, b) => a.start - b.start || a.note - b.note);
-                const cleaned = [];
-                for (const note of result) {
-                    const duplicate = cleaned.findIndex(n => n.note === note.note && Math.abs(n.start - note.start) <= 2);
-                    if (duplicate >= 0) {
-                        if (note.velocity > cleaned[duplicate].velocity) cleaned[duplicate] = note;
-                    } else cleaned.push(note);
-                }
-                return cleaned.sort((a, b) => a.start - b.start || a.note - b.note);
+                return this.cleanAndGateNotes(result, timeline, targetEnd);
             }
 
             interpolateScale(morph) {
@@ -2227,7 +2304,7 @@
         });
 
         function showHelp() {
-            showModal('📖 Musical Interpolation Engine v3.4',
+            showModal('📖 Musical Interpolation Engine v3.5',
                 'How it works:\n\n' +
                 '1. Load two MIDI files (Source A and Source B)\n' +
                 '2. Use the Morph slider to blend between them\n' +
@@ -2244,7 +2321,7 @@
         }
 
         function showAbout() {
-            showModal('🌀 Musical Interpolation Engine v3.4',
+            showModal('🌀 Musical Interpolation Engine v3.5',
                 'A creative tool for blending two MIDI sequences.\n\n' +
                 'Features:\n' +
                 '• Morph between any two MIDI files\n' +
@@ -2256,6 +2333,8 @@
                 '• Krumhansl-Schmuckler key detection with real confidence scoring\n\n' +
                 'v3.0: Adds time-aware group matching, groove-preserving rhythm morphing,\n' +
                 'source-note preservation, smoother voice leading, and shuffle-safe quantisation.\n\n' +
+                'v3.5: Rebuilt rhythm alignment from real source onsets only, removed fabricated\n' +
+                'evenly-spaced attacks, bounded durations by the next onset, and resolved repeated-note overlaps.\n\n' +
                 'v3.3: Fixed a major bug — whenever the two sources had noticeably different\n' +
                 'note density (e.g. melody vs. chords), pitch and rhythm were frozen and\n' +
                 'ignored the slider entirely for morph values between 0.12 and 0.88 (76% of\n' +
@@ -2320,7 +2399,7 @@
             initFileHandling();
             renderPianoRoll();
             updateStatus();
-            console.log('🌀 Musical Interpolation Engine v3.4');
+            console.log('🌀 Musical Interpolation Engine v3.5');
             console.log('✅ DOM-decoupled engine — no null errors');
             console.log('📖 Press H for help');
             console.log('⌨️ Space=Play, G=Generate, E=Export, R=Reset view');
