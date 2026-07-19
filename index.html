@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Interpolation Engine v2.1</title>
+    <title>Musical Interpolation Engine v2.3</title>
     <style>
         /* ===== CSS VARIABLES & RESET ===== */
         :root {
@@ -198,6 +198,23 @@
         .piano-roll-controls button:hover { background: var(--bg-card); color: var(--text-primary); }
         .piano-roll-controls .sep { color: var(--border-color); padding: 0 2px; }
 
+        .piano-tooltip {
+            display: none;
+            position: absolute;
+            pointer-events: none;
+            background: rgba(13,17,23,0.95);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 5px 8px;
+            font-size: 10px;
+            line-height: 1.5;
+            color: var(--text-primary);
+            white-space: nowrap;
+            z-index: 10;
+            box-shadow: var(--shadow);
+        }
+        .piano-tooltip strong { color: var(--accent-teal); }
+
         .right-panel {
             background: var(--bg-secondary);
             padding: 12px;
@@ -356,6 +373,16 @@
         .audition-controls button:hover { background: var(--bg-card); color: var(--text-primary); }
         .audition-controls button.primary { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
         .audition-controls button.primary:hover { background: #4a8fd8; }
+        .audition-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .audition-controls select {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            cursor: pointer;
+        }
 
         .modal-overlay {
             display: none;
@@ -409,7 +436,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="header-left">
-                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v2.1</span></span></div>
+                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v2.3</span></span></div>
             </div>
             <div class="header-actions">
                 <button class="btn-icon" onclick="showHelp()">📖</button>
@@ -488,6 +515,7 @@
         <main class="center-panel">
             <div class="piano-roll-container">
                 <canvas id="pianoRollCanvas"></canvas>
+                <div class="piano-tooltip" id="pianoTooltip"></div>
                 <div class="piano-roll-controls">
                     <button onclick="zoomPianoRoll(-1)">−</button>
                     <span style="font-size:10px;color:var(--text-muted)" id="zoomDisplay">100%</span>
@@ -546,11 +574,14 @@
         <footer class="bottom-panel">
             <div class="status"><span id="statusText">Ready — Load two MIDI files to interpolate</span></div>
             <div class="audition-controls">
+                <select id="playSource" title="What to preview">
+                    <option value="interpolated">🌀 Interpolated</option>
+                    <option value="A">Source A</option>
+                    <option value="B">Source B</option>
+                </select>
                 <button class="primary" onclick="playAudition()">▶ Play</button>
+                <button id="pauseBtn" onclick="togglePause()" disabled>⏸ Pause</button>
                 <button onclick="stopAudition()">⏹ Stop</button>
-                <span style="font-size:9px;color:var(--text-muted);margin-left:4px;">
-                    <span id="playMode">Interpolated</span>
-                </span>
             </div>
         </footer>
     </div>
@@ -568,7 +599,7 @@
 
     <script>
         // ============================================================
-        // Musical Interpolation Engine v2.1 - All Fixes Applied
+        // Musical Interpolation Engine v2.3 - DOM-Decoupled
         // ============================================================
 
         // ---- State ----
@@ -582,6 +613,13 @@
             audioContext: null,
             playbackOscillators: [],
             isPlaying: false,
+            playbackSource: null,
+            playbackAnchor: 0,
+            playbackDuration: 0,
+            playbackTicksPerSecond: 1,
+            playbackFirstTick: 0,
+            playheadTick: null,
+            playheadRAF: null,
             noteIdCounter: 0,
             loadedA: false,
             loadedB: false,
@@ -591,6 +629,12 @@
         const $ = id => document.getElementById(id);
         const canvas = $('pianoRollCanvas');
         const ctx = canvas.getContext('2d');
+
+        const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        function midiNoteName(n) {
+            const octave = Math.floor(n / 12) - 1;
+            return NOTE_NAMES[((n % 12) + 12) % 12] + octave;
+        }
 
         // ============================================================
         // 1. MIDI VLQ — Standards-Compliant
@@ -665,7 +709,8 @@
             }
 
             const key = detectKeyKrumhansl(allNotes);
-            const duration = maxTime / ppq * 0.5;
+            const secondsPerBeat = firstTempo / 1000000;
+            const duration = maxTime / ppq * secondsPerBeat;
             const tempo = 60000000 / firstTempo;
 
             return {
@@ -837,18 +882,29 @@
             if (total === 0) return { name: 'C', confidence: 0, alternatives: [] };
             for (let i = 0; i < 12; i++) durationWeighted[i] /= total;
 
+            function pearsonCorrelation(x, y) {
+                const n = x.length;
+                const meanX = x.reduce((a, b) => a + b, 0) / n;
+                const meanY = y.reduce((a, b) => a + b, 0) / n;
+                let num = 0, denX = 0, denY = 0;
+                for (let i = 0; i < n; i++) {
+                    const dx = x[i] - meanX, dy = y[i] - meanY;
+                    num += dx * dy; denX += dx * dx; denY += dy * dy;
+                }
+                const den = Math.sqrt(denX * denY);
+                return den === 0 ? 0 : num / den;
+            }
+
             let bestScore = -Infinity;
             let bestKey = 'C';
             let bestMode = 'major';
             const alternatives = [];
 
             for (let root = 0; root < 12; root++) {
-                let scoreMajor = 0,
-                    scoreMinor = 0;
-                for (let i = 0; i < 12; i++) {
-                    scoreMajor += durationWeighted[(root + i) % 12] * ksMajor[i];
-                    scoreMinor += durationWeighted[(root + i) % 12] * ksMinor[i];
-                }
+                const rotated = [];
+                for (let i = 0; i < 12; i++) rotated.push(durationWeighted[(root + i) % 12]);
+                const scoreMajor = pearsonCorrelation(rotated, ksMajor);
+                const scoreMinor = pearsonCorrelation(rotated, ksMinor);
                 const name = noteNames[root];
                 alternatives.push({ name, major: scoreMajor, minor: scoreMinor });
 
@@ -861,7 +917,9 @@
             }
 
             alternatives.sort((a, b) => Math.max(b.major, b.minor) - Math.max(a.major, a.minor));
-            const confidence = Math.min(100, Math.max(0, (bestScore + 1) * 50));
+            // Correlation is -1..1; a real tonal center scores ~0.3-0.9, so this now
+            // gives a meaningful confidence instead of pinning near 100% always.
+            const confidence = Math.round(Math.max(0, Math.min(1, bestScore)) * 100);
 
             return {
                 name: bestKey,
@@ -948,7 +1006,7 @@
         }
 
         // ============================================================
-        // 6. Interpolation Engine — Timeline-based, robust
+        // 6. Interpolation Engine — Fully decoupled from DOM
         // ============================================================
 
         class InterpolationEngine {
@@ -972,16 +1030,8 @@
                 this.keyB = keyB || 'C';
                 this.scaleA = this.getScale(keyA);
                 this.scaleB = this.getScale(keyB);
-                this.notesA = this.filterNotes(notesA);
-                this.notesB = this.filterNotes(notesB);
-            }
-
-            filterNotes(notes) {
-                const excludeDrums = $('#excludeDrums').checked;
-                return notes.filter(n => {
-                    if (excludeDrums && n.channel === 9) return false;
-                    return n.note >= 0 && n.note < 128 && (n.duration || 240) > 0;
-                });
+                this.notesA = notesA.filter(n => n.note >= 0 && n.note < 128 && (n.duration || 240) > 0);
+                this.notesB = notesB.filter(n => n.note >= 0 && n.note < 128 && (n.duration || 240) > 0);
             }
 
             getScale(key) {
@@ -1006,13 +1056,20 @@
                         blendDuration = true,
                         constrainToScale = true,
                         gridValue = 0,
+                        excludeDrums = true,
                 } = options;
 
-                const notesA = this.notesA;
-                const notesB = this.notesB;
+                let notesA = this.notesA;
+                let notesB = this.notesB;
+
+                // Filter drums if requested
+                if (excludeDrums) {
+                    notesA = notesA.filter(n => n.channel !== 9);
+                    notesB = notesB.filter(n => n.channel !== 9);
+                }
 
                 if (notesA.length === 0 || notesB.length === 0) {
-                    console.warn('One or both note sets are empty');
+                    console.warn('One or both note sets are empty after filtering');
                     return [];
                 }
 
@@ -1046,7 +1103,7 @@
                     return [];
                 }
 
-                const grid = gridValue > 0 ? gridValue : 60;
+                const grid = gridValue > 0 ? gridValue : this.ppq * 0.25;
                 const step = grid;
                 const numSteps = Math.max(2, Math.ceil(duration / step));
 
@@ -1063,7 +1120,6 @@
                     const a = evA;
                     const b = evB;
 
-                    // Interpolate
                     let note = a.note;
                     let start = time;
                     let end = time + (a.duration || 240);
@@ -1179,8 +1235,7 @@
                     if (dist < bestDist) { bestDist = dist;
                         best = ev; }
                 }
-                // Only return if within reasonable distance (e.g., 4 grid steps)
-                const maxDist = 4 * (events[0].duration || 60);
+                const maxDist = 4 * (best.duration || 60);
                 if (bestDist > maxDist) return null;
                 return best;
             }
@@ -1199,14 +1254,15 @@
                 return result.length > 0 ? result : [0, 2, 4, 5, 7, 9, 11];
             }
 
-            getStats(notes) {
+            getStats(notes, tempo = 120) {
                 if (notes.length === 0) return { noteCount: 0, duration: 0, avgVelocity: 0, range: { min: 0, max: 0 } };
                 const velocities = notes.map(n => n.velocity);
                 const pitches = notes.map(n => n.note);
                 const maxTime = Math.max(...notes.map(n => n.end || n.start + 240));
+                const secondsPerBeat = 60 / tempo;
                 return {
                     noteCount: notes.length,
-                    duration: maxTime / this.ppq * 0.5,
+                    duration: maxTime / this.ppq * secondsPerBeat,
                     avgVelocity: Math.round(velocities.reduce((a, b) => a + b, 0) / velocities.length),
                     range: { min: Math.min(...pitches), max: Math.max(...pitches) },
                 };
@@ -1338,7 +1394,6 @@
             $('generateBtn').disabled = !ready;
             $('exportBtn').disabled = !ready;
             if (ready) {
-                // Small delay to ensure DOM is ready
                 setTimeout(() => {
                     try {
                         generateInterpolation();
@@ -1350,7 +1405,7 @@
             }
         }
 
-        // ---- Generate Interpolation (with error handling) ----
+        // ---- Generate Interpolation (pass all options) ----
         function generateInterpolation() {
             if (!state.loadedA || !state.loadedB) {
                 showModal('Info', 'Please load both MIDI files first');
@@ -1364,16 +1419,18 @@
 
             try {
                 const morph = state.morphValue;
+                const ppq = Math.max(state.sourceA.ppq || 480, state.sourceB.ppq || 480);
                 const options = {
                     blendRhythm: $('blendRhythm').checked,
                     blendMelody: $('blendMelody').checked,
                     blendVelocity: $('blendVelocity').checked,
                     blendDuration: $('blendDuration').checked,
                     constrainToScale: $('constrainToScale').checked,
-                    gridValue: parseFloat($('gridSelect').value) * 60 || 60,
+                    // gridSelect values are in "quarter notes" (1 = quarter, 4 = whole, 0.25 = 16th),
+                    // so scale by the file's actual PPQ rather than a fixed constant.
+                    gridValue: parseFloat($('gridSelect').value) * ppq || ppq,
+                    excludeDrums: $('excludeDrums').checked,
                 };
-
-                const ppq = Math.max(state.sourceA.ppq || 480, state.sourceB.ppq || 480);
 
                 engine.setSources(
                     state.sourceA.notes,
@@ -1395,7 +1452,7 @@
                     notes: result,
                     tempo: Math.round(tempo),
                     ppq: ppq,
-                    duration: result.length > 0 ? engine.getStats(result).duration : 0,
+                    duration: result.length > 0 ? engine.getStats(result, tempo).duration : 0,
                     key: key,
                 };
 
@@ -1413,7 +1470,7 @@
         }
 
         function updateAnalysis(notes) {
-            const stats = engine.getStats(notes);
+            const stats = engine.getStats(notes, state.interpolated.tempo || 120);
             $('analysisPlaceholder').style.display = 'none';
             $('analysisContent').style.display = 'block';
 
@@ -1492,19 +1549,23 @@
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-tertiary').trim() || '#1c2333';
             ctx.fillRect(0, 0, w, h);
 
-            // Grid
-            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() ||
-                '#30363d';
-            ctx.lineWidth = 0.5;
+            // Grid — octave (C) rows drawn brighter so pitch is easier to read at a glance
+            const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() || '#30363d';
             for (let i = 0; i <= noteRange; i++) {
                 const y = padding.top + i * noteHeight;
+                const rowNote = maxNote - i;
+                ctx.strokeStyle = rowNote % 12 === 0 ? 'rgba(139,148,158,0.35)' : borderColor;
+                ctx.lineWidth = rowNote % 12 === 0 ? 0.75 : 0.5;
                 ctx.beginPath();
                 ctx.moveTo(padding.left, y);
                 ctx.lineTo(w - padding.right, y);
                 ctx.stroke();
             }
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = borderColor;
 
-            const beatInterval = 240 * state.zoomLevel;
+            const ppqForAxis = state.interpolated.ppq || 480;
+            const beatInterval = ppqForAxis * state.zoomLevel;
             for (let t = 0; t < maxTime; t += beatInterval) {
                 const x = padding.left + t * timeScale;
                 if (x > w - padding.right) break;
@@ -1568,15 +1629,16 @@
                 }
             }
 
-            // Labels
+            // Labels — note names (e.g. "C4") instead of raw MIDI numbers, shown at each octave
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() ||
                 '#484f58';
             ctx.font = '7px sans-serif';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
-            for (let n = minNote; n <= maxNote; n += 5) {
+            for (let n = minNote; n <= maxNote; n++) {
+                if (n % 12 !== 0) continue;
                 const y = padding.top + (maxNote - n) * noteHeight + noteHeight / 2;
-                ctx.fillText(n, padding.left - 4, y);
+                ctx.fillText(midiNoteName(n), padding.left - 4, y);
             }
 
             ctx.textAlign = 'center';
@@ -1586,7 +1648,7 @@
                 if (x > w - padding.right) break;
                 ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() ||
                     '#484f58';
-                ctx.fillText(Math.round(t / 240), x, h - padding.bottom + 4);
+                ctx.fillText(Math.round(t / ppqForAxis) + 1, x, h - padding.bottom + 4);
             }
 
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() ||
@@ -1596,7 +1658,61 @@
             ctx.textBaseline = 'bottom';
             ctx.fillText(`🌀 Interpolated • ${notes.length} notes • Zoom: ${Math.round(state.zoomLevel * 100)}%`,
                 padding.left, h - 4);
+
+            // Playhead
+            if (state.playheadTick !== null && state.playheadTick !== undefined) {
+                const x = padding.left + state.playheadTick * timeScale;
+                if (x >= padding.left && x <= w - padding.right) {
+                    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent-green').trim() || '#3fb950';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(x, padding.top);
+                    ctx.lineTo(x, h - padding.bottom);
+                    ctx.stroke();
+                }
+            }
+
+            // Cache layout so hover handling can map cursor position back to a note
+            state.renderLayout = { padding, noteHeight, timeScale, minNote, maxNote, notes };
         }
+
+        // ---- Piano Roll Hover Tooltip ----
+        function handlePianoRollHover(e) {
+            const layout = state.renderLayout;
+            if (!layout || !layout.notes.length) { hidePianoTooltip(); return; }
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const { padding, noteHeight, timeScale, maxNote, notes } = layout;
+
+            let found = null;
+            for (const n of notes) {
+                const x = padding.left + n.start * timeScale;
+                const endX = padding.left + (n.end || n.start + 1000) * timeScale;
+                const y = padding.top + (maxNote - n.note) * noteHeight;
+                if (mx >= x && mx <= endX && my >= y && my <= y + noteHeight) { found = n; break; }
+            }
+
+            if (!found) { hidePianoTooltip(); return; }
+
+            const ppq = state.interpolated.ppq || 480;
+            const beat = (found.start / ppq).toFixed(2);
+            const tip = $('pianoTooltip');
+            tip.innerHTML = `<strong>${midiNoteName(found.note)}</strong> · vel ${found.velocity}<br>` +
+                `beat ${beat} · ${Math.round((found.morphFactor ?? 0.5) * 100)}% B`;
+            const containerRect = canvas.parentElement.getBoundingClientRect();
+            let left = e.clientX - containerRect.left + 12;
+            let top = e.clientY - containerRect.top + 12;
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+            tip.style.display = 'block';
+        }
+        function hidePianoTooltip() {
+            const tip = $('pianoTooltip');
+            if (tip) tip.style.display = 'none';
+        }
+        canvas.addEventListener('mousemove', handlePianoRollHover);
+        canvas.addEventListener('mouseleave', hidePianoTooltip);
 
         // ---- Morph Control ----
         $('morphSlider').addEventListener('input', function() {
@@ -1632,7 +1748,6 @@
 
                 const midiData = writeMIDI(notes, ppq, tempo);
 
-                // Validate before download
                 const validation = validateMIDI({ buffer: midiData.buffer });
                 if (!validation.valid) {
                     showModal('Export Validation Failed',
@@ -1686,42 +1801,62 @@
             updateStatus();
         }
 
-        // ---- Playback (limited polyphony) ----
-        function playAudition() {
-            const notes = state.interpolated.notes;
+        // ---- Playback ----
+        // Notes are scheduled all at once against a single fixed time anchor
+        // (ctx.currentTime read exactly once) rather than recursively via
+        // setTimeout, which used to let ctx.currentTime drift further ahead
+        // with every call and distort timing on note-dense pieces.
+        const MAX_AUDITION_NOTES = 1500;
+
+        function playAudition(source) {
+            source = source || $('playSource')?.value || 'interpolated';
+
+            let notes, ppq, tempo, label;
+            if (source === 'A' && state.sourceA) {
+                notes = state.sourceA.notes; ppq = state.sourceA.ppq || 480;
+                tempo = state.sourceA.tempo || 120; label = 'Source A';
+            } else if (source === 'B' && state.sourceB) {
+                notes = state.sourceB.notes; ppq = state.sourceB.ppq || 480;
+                tempo = state.sourceB.tempo || 120; label = 'Source B';
+            } else {
+                notes = state.interpolated.notes; ppq = state.interpolated.ppq || 480;
+                tempo = state.interpolated.tempo || 120; label = 'interpolated';
+                source = 'interpolated';
+            }
+
             if (!notes || notes.length === 0) {
-                showModal('No Notes', 'Generate an interpolation first');
+                showModal('No Notes', source === 'interpolated' ?
+                    'Generate an interpolation first' : `No notes loaded for ${label}`);
                 return;
             }
 
             if (!state.audioContext) {
                 state.audioContext = new(window.AudioContext || window.webkitAudioContext)();
             }
-
             const ctx = state.audioContext;
-            const sorted = [...notes].sort((a, b) => a.start - b.start);
-            const firstTime = sorted[0]?.start || 0;
-            const ppq = state.interpolated.ppq || 480;
-            const tempo = state.interpolated.tempo || 120;
-            const beatDuration = 60 / tempo;
-            const ticksPerSecond = ppq / beatDuration;
+            if (ctx.state === 'suspended') ctx.resume();
 
             stopAudition();
 
-            const MAX_POLYPHONY = 32;
-            let scheduled = 0;
-            let activeOscillators = [];
+            let sorted = [...notes].sort((a, b) => a.start - b.start);
+            const truncated = sorted.length > MAX_AUDITION_NOTES;
+            if (truncated) sorted = sorted.slice(0, MAX_AUDITION_NOTES);
 
-            const scheduleNext = (index) => {
-                if (index >= sorted.length || !state.isPlaying) return;
+            const firstTime = sorted[0]?.start || 0;
+            const ticksPerSecond = ppq / (60 / tempo);
 
-                const n = sorted[index];
+            const LOOKAHEAD = 0.12; // small buffer so the first note isn't clipped
+            const anchor = ctx.currentTime + LOOKAHEAD;
+            const activeOscillators = [];
+            let maxEnd = 0;
+
+            for (const n of sorted) {
                 const time = (n.start - firstTime) / ticksPerSecond;
                 const duration = Math.max(0.05, (n.duration || 240) / ticksPerSecond);
                 const velocity = Math.min(n.velocity / 127, 0.35);
-
-                const startTime = ctx.currentTime + time;
+                const startTime = anchor + time;
                 const endTime = startTime + duration;
+                maxEnd = Math.max(maxEnd, time + duration);
 
                 try {
                     const osc = ctx.createOscillator();
@@ -1736,43 +1871,77 @@
                     osc.start(startTime);
                     osc.stop(endTime + 0.01);
                     activeOscillators.push({ osc, gain, endTime });
-
-                    scheduled++;
-                    if (scheduled >= MAX_POLYPHONY) {
-                        setTimeout(() => {
-                            scheduled = 0;
-                            activeOscillators = [];
-                            scheduleNext(index + 1);
-                        }, 200);
-                        return;
-                    }
                 } catch (e) {}
-
-                setTimeout(() => scheduleNext(index + 1), 10);
-            };
+            }
 
             state.isPlaying = true;
             state.playbackOscillators = activeOscillators;
-            scheduleNext(0);
+            state.playbackSource = source;
+            state.playbackAnchor = anchor;
+            state.playbackDuration = maxEnd;
+            state.playbackTicksPerSecond = ticksPerSecond;
+            state.playbackFirstTick = firstTime;
+            $('pauseBtn').textContent = '⏸ Pause';
+            $('pauseBtn').disabled = false;
 
             const status = $('statusText');
-            status.textContent = `▶ Playing ${sorted.length} interpolated notes`;
+            status.textContent = `▶ Playing ${sorted.length} ${label} notes` + (truncated ? ` (first ${MAX_AUDITION_NOTES})` : '');
             status.className = 'highlight';
+
+            if (source === 'interpolated') {
+                cancelAnimationFrame(state.playheadRAF);
+                animatePlayhead();
+            }
+        }
+
+        function animatePlayhead() {
+            if (!state.isPlaying || state.playbackSource !== 'interpolated') {
+                state.playheadTick = null;
+                return;
+            }
+            const ctx = state.audioContext;
+            const elapsed = ctx.currentTime - state.playbackAnchor;
+            if (elapsed >= state.playbackDuration + 0.05) {
+                stopAudition();
+                return;
+            }
+            state.playheadTick = state.playbackFirstTick + Math.max(0, elapsed) * state.playbackTicksPerSecond;
+            renderPianoRoll();
+            state.playheadRAF = requestAnimationFrame(animatePlayhead);
+        }
+
+        function togglePause() {
+            if (!state.audioContext || !state.isPlaying) return;
+            if (state.audioContext.state === 'running') {
+                state.audioContext.suspend();
+                $('pauseBtn').textContent = '▶ Resume';
+                cancelAnimationFrame(state.playheadRAF);
+            } else {
+                state.audioContext.resume();
+                $('pauseBtn').textContent = '⏸ Pause';
+                if (state.playbackSource === 'interpolated') animatePlayhead();
+            }
         }
 
         function stopAudition() {
             state.isPlaying = false;
+            cancelAnimationFrame(state.playheadRAF);
+            const hadPlayhead = state.playheadTick !== null;
+            state.playheadTick = null;
             for (const p of state.playbackOscillators) {
                 try { p.osc.stop();
                     p.osc.disconnect();
                     p.gain.disconnect(); } catch (e) {}
             }
             state.playbackOscillators = [];
+            $('pauseBtn').textContent = '⏸ Pause';
+            $('pauseBtn').disabled = true;
             const status = $('statusText');
             if (status.textContent.includes('▶')) {
                 status.textContent = '⏹ Stopped';
                 status.className = '';
             }
+            if (hadPlayhead) renderPianoRoll();
         }
 
         // ---- UI Controls ----
@@ -1808,34 +1977,35 @@
         });
 
         function showHelp() {
-            showModal('📖 Musical Interpolation Engine v2.1',
+            showModal('📖 Musical Interpolation Engine v2.3',
                 'How it works:\n\n' +
                 '1. Load two MIDI files (Source A and Source B)\n' +
                 '2. Use the Morph slider to blend between them\n' +
                 '3. 0% = pure Source A, 100% = pure Source B\n' +
                 '4. Select which parameters to blend\n' +
                 '5. Enable "Constrain to Scale" for musical results\n' +
-                '6. Preview with Play, export with Export\n\n' +
-                'v2.1 Fixes:\n' +
-                '• Reliable auto-generation on load\n' +
-                '• Robust error handling with modal alerts\n' +
-                '• Fixed grid quantisation mapping\n' +
-                '• Improved event alignment\n' +
-                '• Better empty-result handling'
+                '6. Preview with Play/Pause/Stop, export with Export\n' +
+                '7. Pick Interpolated / Source A / Source B from the\n' +
+                '   dropdown next to Play to audition any of the three\n' +
+                '8. Hover over notes in the piano roll for details\n\n' +
+                'Keyboard: Space=Play/Stop, G=Generate, E=Export,\n' +
+                'R=Reset view, +/-=Zoom, H=Help'
             );
         }
 
         function showAbout() {
-            showModal('🌀 Musical Interpolation Engine v2.1',
+            showModal('🌀 Musical Interpolation Engine v2.3',
                 'A creative tool for blending two MIDI sequences.\n\n' +
                 'Features:\n' +
                 '• Morph between any two MIDI files\n' +
                 '• Independent control over rhythm, melody, velocity, duration\n' +
                 '• Scale-constrained pitch interpolation\n' +
-                '• Real-time preview with morph slider\n' +
+                '• Real-time preview with playhead, pause, and A/B/blend audition\n' +
+                '• Hover tooltips and note-name axis on the piano roll\n' +
                 '• Export with validation\n' +
-                '• Krumhansl-Schmuckler key detection\n\n' +
-                'All fixes from v2.0 specification applied.'
+                '• Krumhansl-Schmuckler key detection with real confidence scoring\n\n' +
+                'v2.3: Fixed key-confidence, duration/tempo, grid-quantization,\n' +
+                'and audio-scheduling-drift bugs; added pause and A/B preview.'
             );
         }
 
@@ -1890,8 +2060,8 @@
             initFileHandling();
             renderPianoRoll();
             updateStatus();
-            console.log('🌀 Musical Interpolation Engine v2.1');
-            console.log('✅ All critical fixes applied');
+            console.log('🌀 Musical Interpolation Engine v2.3');
+            console.log('✅ DOM-decoupled engine — no null errors');
             console.log('📖 Press H for help');
             console.log('⌨️ Space=Play, G=Generate, E=Export, R=Reset view');
         }
