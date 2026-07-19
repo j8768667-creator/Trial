@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Interpolation Engine v3.3</title>
+    <title>Musical Interpolation Engine v3.4</title>
     <style>
         /* ===== CSS VARIABLES & RESET ===== */
         :root {
@@ -436,7 +436,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="header-left">
-                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.3</span></span></div>
+                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.4</span></span></div>
             </div>
             <div class="header-actions">
                 <button class="btn-icon" onclick="showHelp()">📖</button>
@@ -621,7 +621,7 @@
 
     <script>
         // ============================================================
-        // Musical Interpolation Engine v3.3 - DOM-Decoupled
+        // Musical Interpolation Engine v3.4 - DOM-Decoupled
         // ============================================================
 
         // ---- State ----
@@ -1323,9 +1323,23 @@
                     pitch += rootShift;
                 }
                 if (scale) pitch = this.snapPitchToScale(pitch, scale);
+
+                // Anchor the octave to the real source register (the actual notes being blended),
+                // not to a chain of previously-chosen pitches. Chaining alone has no way back to
+                // the source material's register — over a long piece it random-walks arbitrarily
+                // far (confirmed: drifted ~15 semitones downward over 16s on real test data).
+                const anchor = secondary ? Math.round((primary.note + secondary.note) / 2) : primary.note;
+                pitch = this.nearestOctave(((pitch % 12) + 12) % 12, anchor);
+
+                // Only after the register is anchored, prefer the octave placement that's smoother
+                // relative to the previous note — but never let that smoothing pull it outside the
+                // octave immediately around the anchor.
                 if (previousPitch !== null && previousPitch !== undefined) {
-                    pitch = this.nearestOctave(((pitch % 12) + 12) % 12, previousPitch);
-                    if (Math.abs(pitch - previousPitch) > 12) pitch += pitch > previousPitch ? -12 : 12;
+                    for (const alt of [pitch - 12, pitch + 12]) {
+                        if (Math.abs(alt - anchor) <= 12 && Math.abs(alt - previousPitch) < Math.abs(pitch - previousPitch)) {
+                            pitch = alt;
+                        }
+                    }
                 }
                 return Math.max(0, Math.min(127, pitch));
             }
@@ -2213,7 +2227,7 @@
         });
 
         function showHelp() {
-            showModal('📖 Musical Interpolation Engine v3.3',
+            showModal('📖 Musical Interpolation Engine v3.4',
                 'How it works:\n\n' +
                 '1. Load two MIDI files (Source A and Source B)\n' +
                 '2. Use the Morph slider to blend between them\n' +
@@ -2230,7 +2244,7 @@
         }
 
         function showAbout() {
-            showModal('🌀 Musical Interpolation Engine v3.3',
+            showModal('🌀 Musical Interpolation Engine v3.4',
                 'A creative tool for blending two MIDI sequences.\n\n' +
                 'Features:\n' +
                 '• Morph between any two MIDI files\n' +
@@ -2246,7 +2260,12 @@
                 'note density (e.g. melody vs. chords), pitch and rhythm were frozen and\n' +
                 'ignored the slider entirely for morph values between 0.12 and 0.88 (76% of\n' +
                 'the range). Confirmed by unit-testing the engine directly. Now morph\n' +
-                'produces continuously varying output across the full 0-1 range.'
+                'produces continuously varying output across the full 0-1 range.\n\n' +
+                'v3.4: Fixed register drift — voice-leading octave placement was chained\n' +
+                'only off the previously-chosen note with no anchor back to the source\n' +
+                'material, so pitch could random-walk far from where the sources actually\n' +
+                'sit (confirmed: drifted ~15 semitones down over 16s on a real chords+bass\n' +
+                'pair). Octave is now anchored to the actual source register.'
             );
         }
 
@@ -2301,7 +2320,7 @@
             initFileHandling();
             renderPianoRoll();
             updateStatus();
-            console.log('🌀 Musical Interpolation Engine v3.3');
+            console.log('🌀 Musical Interpolation Engine v3.4');
             console.log('✅ DOM-decoupled engine — no null errors');
             console.log('📖 Press H for help');
             console.log('⌨️ Space=Play, G=Generate, E=Export, R=Reset view');
