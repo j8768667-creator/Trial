@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Interpolation Engine v3.2</title>
+    <title>Musical Interpolation Engine v3.3</title>
     <style>
         /* ===== CSS VARIABLES & RESET ===== */
         :root {
@@ -436,7 +436,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="header-left">
-                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.2</span></span></div>
+                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.3</span></span></div>
             </div>
             <div class="header-actions">
                 <button class="btn-icon" onclick="showHelp()">📖</button>
@@ -621,7 +621,7 @@
 
     <script>
         // ============================================================
-        // Musical Interpolation Engine v3.2 - DOM-Decoupled
+        // Musical Interpolation Engine v3.3 - DOM-Decoupled
         // ============================================================
 
         // ---- State ----
@@ -1330,23 +1330,6 @@
                 return Math.max(0, Math.min(127, pitch));
             }
 
-            analyseMusicalRole(notes) {
-                const groups = this.groupByOnset(notes);
-                if (!groups.length) return { harmonicScore: 0, rhythmicScore: 0, avgPolyphony: 1, avgDuration: 1, medianPitch: 60 };
-                const durations = notes.map(n => n.duration).sort((a, b) => a - b);
-                const pitches = notes.map(n => n.note).sort((a, b) => a - b);
-                const avgPolyphony = notes.length / groups.length;
-                const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
-                const medianPitch = pitches[Math.floor(pitches.length / 2)];
-                const end = Math.max(...notes.map(n => n.end));
-                const attacksPerBeat = groups.length / Math.max(1, end / this.ppq);
-                return {
-                    avgPolyphony, avgDuration, medianPitch, attacksPerBeat,
-                    harmonicScore: avgPolyphony * 2.2 + avgDuration / this.ppq,
-                    rhythmicScore: attacksPerBeat * 1.4 + this.ppq / Math.max(this.ppq / 8, avgDuration),
-                };
-            }
-
             extendToLength(notes, targetEnd) {
                 if (!notes.length) return [];
                 const sourceEnd = Math.max(...notes.map(n => n.end));
@@ -1391,22 +1374,20 @@
                 notesB = this.extendToLength(notesB, targetEnd);
                 const groupsA = this.groupByOnset(notesA), groupsB = this.groupByOnset(notesB);
                 const endA = targetEnd, endB = targetEnd;
-                const roleA = this.analyseMusicalRole(notesA);
-                const roleB = this.analyseMusicalRole(notesB);
-                const roleContrast = Math.max(roleA.harmonicScore, roleB.harmonicScore) /
-                    Math.max(0.01, Math.min(roleA.harmonicScore, roleB.harmonicScore));
-                const distinctRoles = roleContrast >= 1.55;
-                const harmonicOwner = roleA.harmonicScore >= roleB.harmonicScore ? 'A' : 'B';
-                const rhythmOwner = harmonicOwner === 'A' ? 'B' : 'A';
-                let timeline;
-                if (blendRhythm && distinctRoles && morph > 0.12 && morph < 0.88) {
-                    const rhythmGroups = rhythmOwner === 'A' ? groupsA : groupsB;
-                    timeline = rhythmGroups.map(g => ({ norm: g.start / targetEnd, owner: rhythmOwner }));
-                } else {
-                    timeline = blendRhythm ? this.buildRhythmTimeline(groupsA, groupsB, endA, endB, morph)
-                        : groupsA.map(g => ({ norm: g.start / Math.max(1, endA), owner: 'A' }));
-                }
-                const scale = constrainToScale ? (distinctRoles ? (harmonicOwner === 'A' ? this.scaleA : this.scaleB) : this.interpolateScale(morph)) : null;
+
+                // NOTE ON A PREVIOUS BUG (fixed): this used to branch into a "distinct musical
+                // roles" mode whenever the two sources had different note density (harmonicScore
+                // ratio >= 1.55 — true for almost any melody-vs-chords pairing). Inside that mode,
+                // the rhythm timeline, pitch, voice count, and duration were all picked from a
+                // *fixed* source file (whichever scored higher/lower on harmonicScore) rather than
+                // from `morph`, for the entire 0.12-0.88 range of the slider. Only velocity actually
+                // faded. That meant 76% of the slider produced literally identical notes — which is
+                // exactly the "doesn't interpolate correctly" symptom. buildRhythmTimeline(),
+                // choosePitch(), and interpolateScale() below are already properly morph-sensitive
+                // (confirmed by testing), so we always route through them instead of special-casing.
+                const timeline = blendRhythm ? this.buildRhythmTimeline(groupsA, groupsB, endA, endB, morph)
+                    : groupsA.map(g => ({ norm: g.start / Math.max(1, endA), owner: 'A' }));
+                const scale = constrainToScale ? this.interpolateScale(morph) : null;
                 const swingA = this.estimateSwing(groupsA), swingB = this.estimateSwing(groupsB);
                 const swingOffset = swingA.amount * (1 - morph) + swingB.amount * morph;
                 const result = [], previousVoices = [];
@@ -1416,8 +1397,6 @@
                     const groupB = this.nearestGroup(groupsB, slot.norm, endB);
                     if (!groupA || !groupB) return;
                     const dominant = slot.owner === 'B' ? groupB : groupA;
-                    const harmonicGroup = harmonicOwner === 'A' ? groupA : groupB;
-                    const rhythmicGroup = rhythmOwner === 'A' ? groupA : groupB;
                     let start = Math.round(slot.norm * targetEnd);
 
                     if (gridValue > 0) {
@@ -1429,41 +1408,19 @@
                         if (eighthSlot % 2 === 1) start += Math.round(swingOffset);
                     }
 
-                    let voiceCount;
-                    if (distinctRoles && morph > 0.12 && morph < 0.88) {
-                        // Preserve recognisable harmony without firing the full chord on every ghost note.
-                        const harmonicVoices = harmonicGroup.notes.length;
-                        const rhythmicVoices = rhythmicGroup.notes.length;
-                        voiceCount = Math.max(1, Math.min(harmonicVoices, Math.round(1 + rhythmicVoices * 0.9 + harmonicVoices * 0.22)));
-                    } else {
-                        voiceCount = Math.max(1, Math.round(groupA.notes.length * (1 - morph) + groupB.notes.length * morph));
-                    }
+                    const voiceCount = Math.max(1, Math.round(groupA.notes.length * (1 - morph) + groupB.notes.length * morph));
                     for (let v = 0; v < voiceCount; v++) {
                         const indexA = Math.min(groupA.notes.length - 1, Math.round(v * (groupA.notes.length - 1) / Math.max(1, voiceCount - 1)));
                         const indexB = Math.min(groupB.notes.length - 1, Math.round(v * (groupB.notes.length - 1) / Math.max(1, voiceCount - 1)));
                         const a = groupA.notes[indexA], b = groupB.notes[indexB];
                         const sourceNote = slot.owner === 'B' ? b : a;
-                        let note;
-                        if (blendMelody && distinctRoles && morph > 0.12 && morph < 0.88) {
-                            const hp = Math.min(harmonicGroup.notes.length - 1, Math.round(v * (harmonicGroup.notes.length - 1) / Math.max(1, voiceCount - 1)));
-                            note = harmonicGroup.notes[hp].note;
-                            if (scale) note = this.snapPitchToScale(note, scale);
-                            // Keep voices close to their previous register for smooth chord movement.
-                            if (previousVoices[v] !== undefined) note = this.nearestOctave(note % 12, previousVoices[v]);
-                        } else {
-                            note = blendMelody ? this.choosePitch(a, b, morph, slotIndex * 16 + v, previousVoices[v], scale) : a.note;
-                        }
+
+                        const note = blendMelody ? this.choosePitch(a, b, morph, slotIndex * 16 + v, previousVoices[v], scale) : a.note;
                         previousVoices[v] = note;
 
-                        let duration;
-                        if (blendDuration && distinctRoles && morph > 0.12 && morph < 0.88) {
-                            duration = Math.round(harmonicGroup.duration * 0.28 + rhythmicGroup.duration * 0.72);
-                        } else {
-                            duration = blendDuration ? Math.round(a.duration * (1 - morph) + b.duration * morph) : sourceNote.duration;
-                            duration = Math.round(duration * 0.55 + dominant.duration * 0.45);
-                        }
+                        let duration = blendDuration ? Math.round(a.duration * (1 - morph) + b.duration * morph) : sourceNote.duration;
+                        duration = Math.round(duration * 0.55 + dominant.duration * 0.45);
                         let velocity = blendVelocity ? Math.round(a.velocity * (1 - morph) + b.velocity * morph) : sourceNote.velocity;
-                        velocity = Math.round(velocity * 0.65 + rhythmicGroup.velocity * 0.35);
 
                         if (gridValue > 0) duration = Math.max(1, Math.round(duration / Math.max(1, gridValue / 2)) * Math.max(1, gridValue / 2));
                         duration = Math.max(12, Math.min(duration, Math.max(24, targetEnd - start)));
@@ -2256,7 +2213,7 @@
         });
 
         function showHelp() {
-            showModal('📖 Musical Interpolation Engine v3.2',
+            showModal('📖 Musical Interpolation Engine v3.3',
                 'How it works:\n\n' +
                 '1. Load two MIDI files (Source A and Source B)\n' +
                 '2. Use the Morph slider to blend between them\n' +
@@ -2273,7 +2230,7 @@
         }
 
         function showAbout() {
-            showModal('🌀 Musical Interpolation Engine v3.2',
+            showModal('🌀 Musical Interpolation Engine v3.3',
                 'A creative tool for blending two MIDI sequences.\n\n' +
                 'Features:\n' +
                 '• Morph between any two MIDI files\n' +
@@ -2284,7 +2241,12 @@
                 '• Export with validation\n' +
                 '• Krumhansl-Schmuckler key detection with real confidence scoring\n\n' +
                 'v3.0: Adds time-aware group matching, groove-preserving rhythm morphing,\n' +
-                'source-note preservation, smoother voice leading, and shuffle-safe quantisation.'
+                'source-note preservation, smoother voice leading, and shuffle-safe quantisation.\n\n' +
+                'v3.3: Fixed a major bug — whenever the two sources had noticeably different\n' +
+                'note density (e.g. melody vs. chords), pitch and rhythm were frozen and\n' +
+                'ignored the slider entirely for morph values between 0.12 and 0.88 (76% of\n' +
+                'the range). Confirmed by unit-testing the engine directly. Now morph\n' +
+                'produces continuously varying output across the full 0-1 range.'
             );
         }
 
@@ -2339,7 +2301,7 @@
             initFileHandling();
             renderPianoRoll();
             updateStatus();
-            console.log('🌀 Musical Interpolation Engine v3.2');
+            console.log('🌀 Musical Interpolation Engine v3.3');
             console.log('✅ DOM-decoupled engine — no null errors');
             console.log('📖 Press H for help');
             console.log('⌨️ Space=Play, G=Generate, E=Export, R=Reset view');
