@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Interpolation Engine v3.5</title>
+    <title>Musical Interpolation Engine v3.6</title>
     <style>
         /* ===== CSS VARIABLES & RESET ===== */
         :root {
@@ -436,7 +436,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="header-left">
-                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.5</span></span></div>
+                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v3.6</span></span></div>
             </div>
             <div class="header-actions">
                 <button class="btn-icon" onclick="showHelp()">📖</button>
@@ -621,7 +621,7 @@
 
     <script>
         // ============================================================
-        // Musical Interpolation Engine v3.5 - DOM-Decoupled
+        // Musical Interpolation Engine v3.6 - DOM-Decoupled
         // ============================================================
 
         // ---- State ----
@@ -1254,65 +1254,81 @@
                 return { amount: weight ? sum / weight : 0, subdivision: sub };
             }
 
+            velocityStats(notes) {
+                if (!notes.length) return { mean: 76, spread: 20 };
+                const values = notes.map(n => Math.max(1, Math.min(127, n.velocity || 64))).sort((a, b) => a - b);
+                const mean = values.reduce((a, b) => a + b, 0) / values.length;
+                const q10 = values[Math.floor((values.length - 1) * 0.10)];
+                const q90 = values[Math.floor((values.length - 1) * 0.90)];
+                return { mean, spread: Math.max(12, q90 - q10) };
+            }
+
+            normaliseVelocity(value, stats, targetMean = 76) {
+                // Preserve accents while bringing both files into the same usable dynamic range.
+                // This avoids a loud source dominating the entire interpolation.
+                const centred = (value - stats.mean) / Math.max(12, stats.spread);
+                const mapped = targetMean + centred * 34;
+                // Soft ceiling rather than a hard 127 clamp, which sounds harsh in playback.
+                return Math.max(28, Math.min(108, Math.round(mapped)));
+            }
+
+            alignedLoopLength(notes) {
+                if (!notes.length) return this.ppq * 4;
+                const bar = this.ppq * 4;
+                const end = Math.max(...notes.map(n => n.end));
+                return Math.max(bar, Math.ceil(end / bar) * bar);
+            }
+
             buildRhythmTimeline(groupsA, groupsB, endA, endB, morph) {
-                // Build the morph only from attacks that really occur in A or B. The previous
-                // implementation filled a sparse selection with evenly-spaced synthetic attacks;
-                // those invented positions caused the audible out-of-step / stomping effect.
+                // Compare both performances on one 16th-note groove lattice. Their small timing
+                // offsets are retained as groove residuals, but attacks that belong to the same
+                // musical subdivision can no longer miss one another and create a lurching double hit.
+                const grid = Math.max(1, Math.round(this.ppq / 4));
+                const describe = (group, source) => {
+                    const index = Math.round(group.start / grid);
+                    return { source, group, index, residual: group.start - index * grid };
+                };
                 if (morph <= 0) return groupsA.map(g => ({ tick: g.start, norm: g.start / Math.max(1, endA), owner: 'A', groupA: g, groupB: null }));
                 if (morph >= 1) return groupsB.map(g => ({ tick: g.start, norm: g.start / Math.max(1, endB), owner: 'B', groupA: null, groupB: g }));
 
-                const mergeTolerance = Math.max(3, Math.round(this.ppq / 24)); // about a 32nd-note triplet
-                const raw = [
-                    ...groupsA.map((g, i) => ({ tick: g.start, source: 'A', group: g, index: i })),
-                    ...groupsB.map((g, i) => ({ tick: g.start, source: 'B', group: g, index: i })),
-                ].sort((a, b) => a.tick - b.tick || a.source.localeCompare(b.source));
-
-                const clusters = [];
-                for (const item of raw) {
-                    const last = clusters[clusters.length - 1];
-                    if (!last || item.tick - last.maxTick > mergeTolerance) {
-                        clusters.push({ minTick: item.tick, maxTick: item.tick, items: [item] });
-                    } else {
-                        last.items.push(item);
-                        last.maxTick = item.tick;
-                    }
+                const byIndex = new Map();
+                for (const item of [...groupsA.map(g => describe(g, 'A')), ...groupsB.map(g => describe(g, 'B'))]) {
+                    if (!byIndex.has(item.index)) byIndex.set(item.index, []);
+                    byIndex.get(item.index).push(item);
                 }
 
-                const candidates = clusters.map((cluster, index) => {
-                    const aItems = cluster.items.filter(x => x.source === 'A');
-                    const bItems = cluster.items.filter(x => x.source === 'B');
-                    const groupA = aItems.length ? aItems.reduce((best, x) => x.group.notes.length > best.notes.length ? x.group : best, aItems[0].group) : null;
-                    const groupB = bItems.length ? bItems.reduce((best, x) => x.group.notes.length > best.notes.length ? x.group : best, bItems[0].group) : null;
+                const candidates = [...byIndex.entries()].sort((a, b) => a[0] - b[0]).map(([index, items], order) => {
+                    const aItems = items.filter(x => x.source === 'A');
+                    const bItems = items.filter(x => x.source === 'B');
+                    const select = arr => arr.length ? arr.reduce((best, x) => x.group.notes.length > best.group.notes.length ? x : best, arr[0]) : null;
+                    const A = select(aItems), B = select(bItems);
+                    const groupA = A && A.group, groupB = B && B.group;
                     const hasA = !!groupA, hasB = !!groupB;
                     const contributionA = hasA ? 1 - morph : 0;
                     const contributionB = hasB ? morph : 0;
                     const strength = contributionA + contributionB;
-                    let tick;
-                    if (hasA && hasB) tick = Math.round((groupA.start * contributionA + groupB.start * contributionB) / Math.max(0.0001, strength));
-                    else tick = hasB ? groupB.start : groupA.start;
+                    let residual = 0;
+                    if (hasA && hasB) residual = Math.round((A.residual * contributionA + B.residual * contributionB) / Math.max(0.0001, strength));
+                    else if (hasA) residual = Math.round(A.residual * (1 - morph));
+                    else residual = Math.round(B.residual * morph);
+                    // Keep expressive timing inside a safe window around the shared subdivision.
+                    residual = Math.max(-grid * 0.28, Math.min(grid * 0.28, residual));
+                    const tick = Math.max(0, Math.round(index * grid + residual));
+                    const shared = hasA && hasB;
                     const owner = contributionB > contributionA ? 'B' : 'A';
-                    // Shared attacks are structurally important. Source-only attacks fade in/out
-                    // deterministically as the slider moves, without changing on every playback.
-                    const keepProbability = hasA && hasB ? 1 : strength;
-                    const keep = this.deterministicNoise(index, 47) < keepProbability;
-                    return { tick, norm: tick / Math.max(1, Math.max(endA, endB)), owner, groupA, groupB, strength, keep, shared: hasA && hasB };
+                    const keepProbability = shared ? 1 : strength;
+                    return { tick, norm: tick / Math.max(1, Math.max(endA, endB)), owner, groupA, groupB, strength, shared,
+                        keep: this.deterministicNoise(order, 47) < keepProbability };
                 });
 
                 const desired = Math.max(1, Math.round(groupsA.length * (1 - morph) + groupsB.length * morph));
-                let kept = candidates.filter(c => c.keep || c.shared);
+                let kept = candidates.filter(c => c.shared || c.keep);
                 if (kept.length > desired) {
-                    kept = kept
-                        .map((c, i) => ({ ...c, rank: c.strength + (c.shared ? 2 : 0) + this.deterministicNoise(i, 61) * 0.001 }))
-                        .sort((a, b) => b.rank - a.rank)
-                        .slice(0, desired)
-                        .sort((a, b) => a.tick - b.tick);
-                }
-                // Never invent missing attacks. If probabilistic fading selected too few, restore
-                // the strongest real source attacks only.
-                if (kept.length < desired) {
+                    kept = kept.map((c, i) => ({ ...c, rank: c.strength + (c.shared ? 2 : 0) + this.deterministicNoise(i, 61) * 0.001 }))
+                        .sort((a, b) => b.rank - a.rank).slice(0, desired).sort((a, b) => a.tick - b.tick);
+                } else if (kept.length < desired) {
                     const selected = new Set(kept);
-                    const extras = candidates.filter(c => !selected.has(c))
-                        .sort((a, b) => (b.strength + (b.shared ? 2 : 0)) - (a.strength + (a.shared ? 2 : 0)));
+                    const extras = candidates.filter(c => !selected.has(c)).sort((a, b) => (b.strength + (b.shared ? 2 : 0)) - (a.strength + (a.shared ? 2 : 0)));
                     kept.push(...extras.slice(0, desired - kept.length));
                     kept.sort((a, b) => a.tick - b.tick);
                 }
@@ -1321,24 +1337,26 @@
 
             cleanAndGateNotes(notes, timeline, targetEnd) {
                 if (!notes.length) return [];
-                const starts = timeline.map(s => Math.max(0, Math.round(s.tick))).sort((a, b) => a - b);
-                const uniqueStarts = starts.filter((v, i) => i === 0 || v !== starts[i - 1]);
+                const starts = [...new Set(timeline.map(s => Math.max(0, Math.round(s.tick))))].sort((a, b) => a - b);
 
-                // Bound each generated attack by the following rhythmic attack. This prevents long
-                // source chord durations bleeding through short shuffled hits and creating mush.
+                // Do not cut every chord tone at every later attack. Instead, use the next attack
+                // only to give naturally connected notes a sensible legato floor. Truly short source
+                // articulations remain short; sustained tones are allowed to cross unrelated attacks.
                 for (const note of notes) {
                     let next = targetEnd;
-                    for (const tick of uniqueStarts) {
+                    for (const tick of starts) {
                         if (tick > note.start + 2) { next = tick; break; }
                     }
                     const gap = Math.max(1, next - note.start);
-                    const releaseGap = Math.max(2, Math.min(Math.round(this.ppq / 64), Math.round(gap * 0.08)));
-                    const gatedEnd = Math.max(note.start + 1, next - releaseGap);
-                    note.end = Math.min(note.end, gatedEnd, targetEnd);
-                    note.duration = Math.max(1, note.end - note.start);
+                    const articulation = Number.isFinite(note.articulation) ? note.articulation : 0.8;
+                    if (articulation >= 0.55 && note.duration < gap * 0.72) {
+                        note.duration = Math.round(gap * Math.min(0.94, Math.max(0.72, articulation)));
+                        note.end = note.start + note.duration;
+                    }
+                    note.end = Math.min(targetEnd, Math.max(note.start + 1, note.end));
+                    note.duration = note.end - note.start;
                 }
 
-                // Collapse near-identical same-onset duplicates while preserving true polyphony.
                 notes.sort((a, b) => a.start - b.start || a.note - b.note || b.velocity - a.velocity);
                 const deduped = [];
                 for (const note of notes) {
@@ -1351,8 +1369,7 @@
                     } else deduped.push(note);
                 }
 
-                // Resolve later overlaps of the same pitch. Chords are unaffected because pitches
-                // differ; only repeated identical notes are shortened before the next note-on.
+                // Only repeated instances of the same pitch are gated. Other chord tones may ring.
                 const byPitch = new Map();
                 for (const note of deduped) {
                     if (!byPitch.has(note.note)) byPitch.set(note.note, []);
@@ -1363,7 +1380,8 @@
                     for (let i = 0; i < pitchNotes.length - 1; i++) {
                         const current = pitchNotes[i], next = pitchNotes[i + 1];
                         if (current.end >= next.start) {
-                            current.end = Math.max(current.start + 1, next.start - 1);
+                            const release = Math.max(1, Math.round(this.ppq / 192));
+                            current.end = Math.max(current.start + 1, next.start - release);
                             current.duration = current.end - current.start;
                         }
                     }
@@ -1427,9 +1445,9 @@
                 return Math.max(0, Math.min(127, pitch));
             }
 
-            extendToLength(notes, targetEnd) {
+            extendToLength(notes, targetEnd, loopLength = 0) {
                 if (!notes.length) return [];
-                const sourceEnd = Math.max(...notes.map(n => n.end));
+                const sourceEnd = loopLength || Math.max(...notes.map(n => n.end));
                 if (sourceEnd >= targetEnd - 1) return notes.map(n => ({ ...n }));
                 const result = [];
                 for (let offset = 0; offset < targetEnd; offset += sourceEnd) {
@@ -1459,16 +1477,20 @@
                 let notesB = excludeDrums ? this.notesB.filter(n => n.channel !== 9) : this.notesB.slice();
                 if (!notesA.length || !notesB.length) return [];
 
-                const offsetA = notesA[0].start, offsetB = notesB[0].start;
+                const barTicks = this.ppq * 4;
+                // Shift by whole bars only. Subtracting each file's first note independently made a
+                // pickup note in one source become beat one, putting the two grooves out of phase.
+                const offsetA = Math.floor(notesA[0].start / barTicks) * barTicks;
+                const offsetB = Math.floor(notesB[0].start / barTicks) * barTicks;
                 notesA = notesA.map(n => ({ ...n, start: n.start - offsetA, end: n.end - offsetA }));
                 notesB = notesB.map(n => ({ ...n, start: n.start - offsetB, end: n.end - offsetB }));
-                const originalEndA = Math.max(...notesA.map(n => n.end));
-                const originalEndB = Math.max(...notesB.map(n => n.end));
-                // Always work to the longer source length. The shorter source is looped, not stretched,
-                // so its groove and note lengths remain intact.
-                const targetEnd = Math.max(originalEndA, originalEndB);
-                notesA = this.extendToLength(notesA, targetEnd);
-                notesB = this.extendToLength(notesB, targetEnd);
+                const loopEndA = this.alignedLoopLength(notesA);
+                const loopEndB = this.alignedLoopLength(notesB);
+                // Loop on complete bar boundaries; arbitrary note-end loop points cause the next
+                // repetition to restart between beats and progressively sound out of time.
+                const targetEnd = Math.max(loopEndA, loopEndB);
+                notesA = this.extendToLength(notesA, targetEnd, loopEndA);
+                notesB = this.extendToLength(notesB, targetEnd, loopEndB);
                 const groupsA = this.groupByOnset(notesA), groupsB = this.groupByOnset(notesB);
                 const endA = targetEnd, endB = targetEnd;
 
@@ -1488,6 +1510,8 @@
                 const swingA = this.estimateSwing(groupsA), swingB = this.estimateSwing(groupsB);
                 const swingOffset = swingA.amount * (1 - morph) + swingB.amount * morph;
                 const result = [], previousVoices = [];
+                const velocityStatsA = this.velocityStats(notesA);
+                const velocityStatsB = this.velocityStats(notesB);
 
                 timeline.forEach((slot, slotIndex) => {
                     // Prefer groups explicitly attached to this real onset cluster; only use the
@@ -1517,15 +1541,25 @@
                         const note = blendMelody ? this.choosePitch(a, b, morph, slotIndex * 16 + v, previousVoices[v], scale) : a.note;
                         previousVoices[v] = note;
 
+                        const gapA = Math.max(1, (groupA.duration || a.duration));
+                        const gapB = Math.max(1, (groupB.duration || b.duration));
+                        const articulationA = Math.max(0.12, Math.min(1.6, a.duration / gapA));
+                        const articulationB = Math.max(0.12, Math.min(1.6, b.duration / gapB));
+                        const articulation = articulationA * (1 - morph) + articulationB * morph;
                         let duration = blendDuration ? Math.round(a.duration * (1 - morph) + b.duration * morph) : sourceNote.duration;
-                        duration = Math.round(duration * 0.55 + dominant.duration * 0.45);
-                        let velocity = blendVelocity ? Math.round(a.velocity * (1 - morph) + b.velocity * morph) : sourceNote.velocity;
+                        // Keep the source articulation character, but avoid the former 45% pull
+                        // toward short onset-group durations that made everything clipped.
+                        duration = Math.round(duration * 0.88 + dominant.duration * 0.12);
+                        const velA = this.normaliseVelocity(a.velocity, velocityStatsA);
+                        const velB = this.normaliseVelocity(b.velocity, velocityStatsB);
+                        let velocity = blendVelocity ? Math.round(velA * (1 - morph) + velB * morph)
+                            : this.normaliseVelocity(sourceNote.velocity, slot.owner === 'B' ? velocityStatsB : velocityStatsA);
 
-                        if (gridValue > 0) duration = Math.max(1, Math.round(duration / Math.max(1, gridValue / 2)) * Math.max(1, gridValue / 2));
-                        duration = Math.max(12, Math.min(duration, Math.max(24, targetEnd - start)));
-                        velocity = Math.max(1, Math.min(127, velocity));
+                        if (gridValue > 0) duration = Math.max(1, Math.round(duration / Math.max(1, gridValue / 4)) * Math.max(1, gridValue / 4));
+                        duration = Math.max(Math.round(this.ppq / 16), Math.min(duration, Math.max(24, targetEnd - start)));
+                        velocity = Math.max(24, Math.min(108, velocity));
                         result.push({
-                            id: state.noteIdCounter++, note, start, end: start + duration, duration, velocity,
+                            id: state.noteIdCounter++, note, start, end: start + duration, duration, velocity, articulation,
                             channel: sourceNote.channel || 0, track: sourceNote.track || 0,
                             morphFactor: morph, sourceANote: a.note, sourceBNote: b.note,
                         });
@@ -2304,7 +2338,7 @@
         });
 
         function showHelp() {
-            showModal('📖 Musical Interpolation Engine v3.5',
+            showModal('📖 Musical Interpolation Engine v3.6',
                 'How it works:\n\n' +
                 '1. Load two MIDI files (Source A and Source B)\n' +
                 '2. Use the Morph slider to blend between them\n' +
@@ -2321,7 +2355,7 @@
         }
 
         function showAbout() {
-            showModal('🌀 Musical Interpolation Engine v3.5',
+            showModal('🌀 Musical Interpolation Engine v3.6',
                 'A creative tool for blending two MIDI sequences.\n\n' +
                 'Features:\n' +
                 '• Morph between any two MIDI files\n' +
@@ -2399,7 +2433,7 @@
             initFileHandling();
             renderPianoRoll();
             updateStatus();
-            console.log('🌀 Musical Interpolation Engine v3.5');
+            console.log('🌀 Musical Interpolation Engine v3.6');
             console.log('✅ DOM-decoupled engine — no null errors');
             console.log('📖 Press H for help');
             console.log('⌨️ Space=Play, G=Generate, E=Export, R=Reset view');
