@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Musical Interpolation Engine v2.3</title>
+    <title>Musical Interpolation Engine v2.4</title>
     <style>
         /* ===== CSS VARIABLES & RESET ===== */
         :root {
@@ -436,7 +436,7 @@
         <!-- HEADER -->
         <header class="header">
             <div class="header-left">
-                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v2.3</span></span></div>
+                <div class="logo">🌀 Musical Interpolation <span>Engine <span class="version">v2.4</span></span></div>
             </div>
             <div class="header-actions">
                 <button class="btn-icon" onclick="showHelp()">📖</button>
@@ -502,11 +502,12 @@
                     <input type="checkbox" id="excludeDrums" checked> Exclude Drums (Ch 10)
                 </label>
                 <select class="key-select" id="gridSelect" style="width:100%;padding:4px 8px;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);font-size:11px;margin-top:4px;">
+                    <option value="0">No quantisation</option>
                     <option value="4">Whole notes</option>
                     <option value="2">Half notes</option>
-                    <option value="1" selected>Quarter notes</option>
+                    <option value="1">Quarter notes</option>
                     <option value="0.5">Eighth notes</option>
-                    <option value="0.25">16th notes</option>
+                    <option value="0.25" selected>16th notes</option>
                 </select>
             </div>
         </aside>
@@ -599,7 +600,7 @@
 
     <script>
         // ============================================================
-        // Musical Interpolation Engine v2.3 - DOM-Decoupled
+        // Musical Interpolation Engine v2.4 - DOM-Decoupled
         // ============================================================
 
         // ---- State ----
@@ -641,29 +642,31 @@
         // ============================================================
 
         function readVarLen(data, pos) {
-            let value = 0,
-                shift = 0,
-                b;
+            let value = 0;
+            let count = 0;
             while (true) {
                 if (pos >= data.length) return { value: 0, pos, error: 'Unexpected end' };
-                b = data[pos++];
-                value |= (b & 0x7F) << shift;
-                shift += 7;
+                const b = data[pos++];
+                value = (value << 7) | (b & 0x7F);
+                count++;
                 if (!(b & 0x80)) break;
-                if (shift > 28) return { value: 0, pos, error: 'VLQ too long' };
+                if (count >= 4) return { value: 0, pos, error: 'VLQ too long' };
             }
-            return { value, pos, error: null };
+            return { value: value >>> 0, pos, error: null };
         }
 
         function writeVarLen(value) {
-            if (value < 0) value = 0;
+            value = Math.max(0, Math.floor(value)) >>> 0;
+            let buffer = value & 0x7F;
             const bytes = [];
+            while ((value >>= 7) > 0) {
+                buffer <<= 8;
+                buffer |= ((value & 0x7F) | 0x80);
+            }
             while (true) {
-                let b = value & 0x7F;
-                value >>= 7;
-                if (value > 0) b |= 0x80;
-                bytes.push(b);
-                if (value === 0) break;
+                bytes.push(buffer & 0xFF);
+                if (buffer & 0x80) buffer >>= 8;
+                else break;
             }
             return bytes;
         }
@@ -1022,247 +1025,192 @@
                 this.scaleB = [];
             }
 
-            setSources(notesA, notesB, ppq, tempoA, tempoB, keyA, keyB) {
-                this.ppq = ppq || 480;
+            rescaleNotes(notes, sourcePPQ, targetPPQ) {
+                const ratio = targetPPQ / Math.max(1, sourcePPQ || targetPPQ);
+                return notes
+                    .filter(n => n.note >= 0 && n.note < 128 && (n.duration || 1) > 0 && !n.orphan)
+                    .map(n => {
+                        const start = Math.round(n.start * ratio);
+                        const duration = Math.max(1, Math.round((n.duration || ((n.end || n.start + 1) - n.start)) * ratio));
+                        return { ...n, start, duration, end: start + duration };
+                    })
+                    .sort((a, b) => a.start - b.start || a.note - b.note);
+            }
+
+            setSources(notesA, notesB, targetPPQ, sourcePPQA, sourcePPQB, tempoA, tempoB, keyA, keyB) {
+                this.ppq = targetPPQ || 480;
                 this.tempoA = tempoA || 120;
                 this.tempoB = tempoB || 120;
                 this.keyA = keyA || 'C';
                 this.keyB = keyB || 'C';
-                this.scaleA = this.getScale(keyA);
-                this.scaleB = this.getScale(keyB);
-                this.notesA = notesA.filter(n => n.note >= 0 && n.note < 128 && (n.duration || 240) > 0);
-                this.notesB = notesB.filter(n => n.note >= 0 && n.note < 128 && (n.duration || 240) > 0);
+                this.scaleA = this.getScale(this.keyA);
+                this.scaleB = this.getScale(this.keyB);
+                this.notesA = this.rescaleNotes(notesA, sourcePPQA, this.ppq);
+                this.notesB = this.rescaleNotes(notesB, sourcePPQB, this.ppq);
             }
 
             getScale(key) {
                 const root = this.keyToRoot(key);
-                const isMinor = key.includes('m');
+                const isMinor = /m$/i.test(key);
                 const intervals = isMinor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
                 return intervals.map(i => (root + i) % 12);
             }
 
             keyToRoot(key) {
+                const flats = { Db: 'C#', Eb: 'D#', Gb: 'F#', Ab: 'G#', Bb: 'A#' };
                 const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-                const clean = key.replace(/[^A-G#b]/g, '');
+                let clean = String(key || 'C').match(/^[A-G](?:#|b)?/);
+                clean = clean ? clean[0] : 'C';
+                clean = flats[clean] || clean;
                 const idx = names.indexOf(clean);
                 return idx >= 0 ? idx : 0;
+            }
+
+            groupByOnset(notes, tolerance = 2) {
+                const groups = [];
+                for (const note of notes) {
+                    const last = groups[groups.length - 1];
+                    if (!last || Math.abs(note.start - last.start) > tolerance) {
+                        groups.push({ start: note.start, notes: [note] });
+                    } else {
+                        last.notes.push(note);
+                    }
+                }
+                for (const g of groups) g.notes.sort((a, b) => a.note - b.note);
+                return groups;
+            }
+
+            pickGroup(groups, position) {
+                if (!groups.length) return null;
+                const index = Math.max(0, Math.min(groups.length - 1, Math.round(position * (groups.length - 1))));
+                return groups[index];
+            }
+
+            pickVoice(notes, position) {
+                if (!notes.length) return null;
+                if (notes.length === 1) return notes[0];
+                const index = Math.max(0, Math.min(notes.length - 1, Math.round(position * (notes.length - 1))));
+                return notes[index];
+            }
+
+            snapPitchToScale(note, scale) {
+                note = Math.max(0, Math.min(127, Math.round(note)));
+                if (!scale || !scale.length || scale.includes(((note % 12) + 12) % 12)) return note;
+                for (let distance = 1; distance <= 6; distance++) {
+                    const down = note - distance;
+                    const up = note + distance;
+                    if (down >= 0 && scale.includes(((down % 12) + 12) % 12)) return down;
+                    if (up <= 127 && scale.includes(up % 12)) return up;
+                }
+                return note;
             }
 
             interpolate(morph, options = {}) {
                 const {
                     blendRhythm = true,
-                        blendMelody = true,
-                        blendVelocity = true,
-                        blendDuration = true,
-                        constrainToScale = true,
-                        gridValue = 0,
-                        excludeDrums = true,
+                    blendMelody = true,
+                    blendVelocity = true,
+                    blendDuration = true,
+                    constrainToScale = true,
+                    gridValue = 0,
+                    excludeDrums = true,
                 } = options;
 
-                let notesA = this.notesA;
-                let notesB = this.notesB;
+                let notesA = excludeDrums ? this.notesA.filter(n => n.channel !== 9) : this.notesA.slice();
+                let notesB = excludeDrums ? this.notesB.filter(n => n.channel !== 9) : this.notesB.slice();
+                if (!notesA.length || !notesB.length) return [];
 
-                // Filter drums if requested
-                if (excludeDrums) {
-                    notesA = notesA.filter(n => n.channel !== 9);
-                    notesB = notesB.filter(n => n.channel !== 9);
-                }
+                const offsetA = notesA[0].start;
+                const offsetB = notesB[0].start;
+                notesA = notesA.map(n => ({ ...n, start: n.start - offsetA, end: n.end - offsetA }));
+                notesB = notesB.map(n => ({ ...n, start: n.start - offsetB, end: n.end - offsetB }));
 
-                if (notesA.length === 0 || notesB.length === 0) {
-                    console.warn('One or both note sets are empty after filtering');
-                    return [];
-                }
-
-                // Normalise to start at 0
-                const startA = notesA[0].start;
-                const startB = notesB[0].start;
-
-                const normA = notesA.map(n => ({
-                    ...n,
-                    start: n.start - startA,
-                    end: (n.end || n.start + 240) - startA,
-                    duration: n.duration || 240,
-                }));
-
-                const normB = notesB.map(n => ({
-                    ...n,
-                    start: n.start - startB,
-                    end: (n.end || n.start + 240) - startB,
-                    duration: n.duration || 240,
-                }));
-
-                const maxDurA = Math.max(...normA.map(n => n.end || n.start + 240));
-                const maxDurB = Math.max(...normB.map(n => n.end || n.start + 240));
-                const duration = Math.max(maxDurA, maxDurB);
-
-                const eventsA = this.notesToEvents(normA);
-                const eventsB = this.notesToEvents(normB);
-
-                if (eventsA.length === 0 || eventsB.length === 0) {
-                    console.warn('Event lists are empty after conversion');
-                    return [];
-                }
-
-                const grid = gridValue > 0 ? gridValue : this.ppq * 0.25;
-                const step = grid;
-                const numSteps = Math.max(2, Math.ceil(duration / step));
-
+                const groupsA = this.groupByOnset(notesA);
+                const groupsB = this.groupByOnset(notesB);
+                const endA = Math.max(...notesA.map(n => n.end));
+                const endB = Math.max(...notesB.map(n => n.end));
+                const targetEnd = blendRhythm ? Math.round(endA * (1 - morph) + endB * morph) : endA;
+                const targetGroups = Math.max(1, Math.round(groupsA.length * (1 - morph) + groupsB.length * morph));
+                const scale = this.interpolateScale(morph);
                 const result = [];
 
-                for (let i = 0; i < numSteps; i++) {
-                    const time = i * step;
+                for (let i = 0; i < targetGroups; i++) {
+                    const position = targetGroups === 1 ? 0 : i / (targetGroups - 1);
+                    const groupA = this.pickGroup(groupsA, position);
+                    const groupB = this.pickGroup(groupsB, position);
+                    if (!groupA || !groupB) continue;
 
-                    const evA = this.findClosestEvent(eventsA, time);
-                    const evB = this.findClosestEvent(eventsB, time);
+                    const normStartA = endA > 0 ? groupA.start / endA : 0;
+                    const normStartB = endB > 0 ? groupB.start / endB : 0;
+                    let start = blendRhythm
+                        ? Math.round((normStartA * (1 - morph) + normStartB * morph) * targetEnd)
+                        : groupA.start;
 
-                    if (!evA || !evB) continue;
+                    const voiceCount = Math.max(1, Math.round(groupA.notes.length * (1 - morph) + groupB.notes.length * morph));
+                    for (let v = 0; v < voiceCount; v++) {
+                        const voicePosition = voiceCount === 1 ? 0.5 : v / (voiceCount - 1);
+                        const a = this.pickVoice(groupA.notes, voicePosition);
+                        const b = this.pickVoice(groupB.notes, voicePosition);
+                        if (!a || !b) continue;
 
-                    const a = evA;
-                    const b = evB;
-
-                    let note = a.note;
-                    let start = time;
-                    let end = time + (a.duration || 240);
-                    let velocity = a.velocity || 64;
-                    let duration = a.duration || 240;
-
-                    if (blendMelody) {
-                        const pitchDiff = b.note - a.note;
-                        note = Math.round(a.note + pitchDiff * morph);
-                        if (constrainToScale) {
-                            const scale = this.interpolateScale(morph);
-                            const noteClass = note % 12;
-                            if (!scale.includes(noteClass)) {
-                                let best = noteClass;
-                                let bestDist = 12;
-                                for (const s of scale) {
-                                    let dist = Math.abs(s - noteClass);
-                                    if (dist > 6) dist = 12 - dist;
-                                    if (dist < bestDist) { bestDist = dist;
-                                        best = s; }
-                                }
-                                note = note - (noteClass - best);
-                            }
-                        }
+                        let note = blendMelody ? Math.round(a.note * (1 - morph) + b.note * morph) : a.note;
+                        if (blendMelody && constrainToScale) note = this.snapPitchToScale(note, scale);
                         note = Math.max(0, Math.min(127, note));
-                    }
 
-                    if (blendRhythm) {
-                        const timeDiff = b.start - a.start;
-                        start = Math.round(time + timeDiff * morph * 0.5);
-                        start = Math.max(0, start);
-                    }
+                        let duration = blendDuration
+                            ? Math.round(a.duration * (1 - morph) + b.duration * morph)
+                            : a.duration;
+                        let velocity = blendVelocity
+                            ? Math.round(a.velocity * (1 - morph) + b.velocity * morph)
+                            : a.velocity;
 
-                    if (blendDuration) {
-                        const durDiff = (b.duration || 240) - (a.duration || 240);
-                        duration = Math.round((a.duration || 240) + durDiff * morph);
-                        duration = Math.max(30, duration);
-                        end = start + duration;
-                    } else {
-                        end = start + (a.duration || 240);
-                        duration = end - start;
-                    }
-
-                    if (blendVelocity) {
-                        const velDiff = b.velocity - a.velocity;
-                        velocity = Math.round(a.velocity + velDiff * morph);
-                        velocity = Math.max(1, Math.min(127, velocity));
-                    }
-
-                    if (gridValue > 0) {
-                        start = Math.round(start / gridValue) * gridValue;
-                        duration = Math.round(duration / gridValue) * gridValue;
-                        if (duration < gridValue) duration = gridValue;
-                        end = start + duration;
-                    }
-
-                    result.push({
-                        id: state.noteIdCounter++,
-                        note: Math.round(note),
-                        start: Math.max(0, start),
-                        end: Math.max(start + 30, end),
-                        duration: Math.max(30, end - start),
-                        velocity: Math.round(velocity),
-                        channel: a.channel || 0,
-                        track: a.track || 0,
-                        morphFactor: morph,
-                        sourceANote: a.note,
-                        sourceBNote: b.note,
-                    });
-                }
-
-                // Remove overlapping same-pitch notes (keep highest velocity)
-                const sorted = result.sort((a, b) => a.start - b.start || a.note - b.note);
-                const cleaned = [];
-                for (const n of sorted) {
-                    let overlap = false;
-                    for (const existing of cleaned) {
-                        if (existing.note === n.note &&
-                            n.start < existing.end &&
-                            existing.start < n.end) {
-                            overlap = true;
-                            if (n.velocity > existing.velocity) {
-                                const idx = cleaned.indexOf(existing);
-                                cleaned[idx] = n;
-                            }
-                            break;
+                        if (gridValue > 0) {
+                            start = Math.round(start / gridValue) * gridValue;
+                            duration = Math.max(Math.round(duration / gridValue) * gridValue, Math.max(1, gridValue / 2));
                         }
+                        duration = Math.max(15, duration);
+                        velocity = Math.max(1, Math.min(127, velocity));
+
+                        result.push({
+                            id: state.noteIdCounter++, note, start, end: start + duration, duration,
+                            velocity, channel: morph < 0.5 ? (a.channel || 0) : (b.channel || 0),
+                            track: morph < 0.5 ? (a.track || 0) : (b.track || 0),
+                            morphFactor: morph, sourceANote: a.note, sourceBNote: b.note,
+                        });
                     }
-                    if (!overlap) cleaned.push(n);
                 }
 
+                result.sort((a, b) => a.start - b.start || a.note - b.note);
+                const cleaned = [];
+                for (const note of result) {
+                    const previous = cleaned[cleaned.length - 1];
+                    if (previous && previous.note === note.note && previous.start === note.start) {
+                        if (note.velocity > previous.velocity) cleaned[cleaned.length - 1] = note;
+                    } else {
+                        cleaned.push(note);
+                    }
+                }
                 return cleaned;
             }
 
-            notesToEvents(notes) {
-                return notes.map(n => ({
-                    start: n.start,
-                    end: n.end || n.start + 240,
-                    duration: n.duration || 240,
-                    note: n.note,
-                    velocity: n.velocity || 64,
-                    channel: n.channel || 0,
-                    track: n.track || 0,
-                }));
-            }
-
-            findClosestEvent(events, time) {
-                if (events.length === 0) return null;
-                let best = events[0];
-                let bestDist = Math.abs(events[0].start - time);
-                for (const ev of events) {
-                    const dist = Math.abs(ev.start - time);
-                    if (dist < bestDist) { bestDist = dist;
-                        best = ev; }
-                }
-                const maxDist = 4 * (best.duration || 60);
-                if (bestDist > maxDist) return null;
-                return best;
-            }
-
             interpolateScale(morph) {
-                const scaleA = this.scaleA;
-                const scaleB = this.scaleB;
-                const allNotes = new Set([...scaleA, ...scaleB]);
-                const result = [];
-                for (const n of allNotes) {
-                    const inA = scaleA.includes(n) ? 1 : 0;
-                    const inB = scaleB.includes(n) ? 1 : 0;
-                    const weight = inA * (1 - morph) + inB * morph;
-                    if (weight > 0.3) result.push(n);
+                const preferred = morph < 0.5 ? this.scaleA : this.scaleB;
+                const secondary = morph < 0.5 ? this.scaleB : this.scaleA;
+                const result = preferred.slice();
+                if (Math.abs(morph - 0.5) < 0.2) {
+                    for (const n of secondary) if (!result.includes(n) && result.length < 8) result.push(n);
                 }
-                return result.length > 0 ? result : [0, 2, 4, 5, 7, 9, 11];
+                return result;
             }
 
             getStats(notes, tempo = 120) {
-                if (notes.length === 0) return { noteCount: 0, duration: 0, avgVelocity: 0, range: { min: 0, max: 0 } };
+                if (!notes.length) return { noteCount: 0, duration: 0, avgVelocity: 0, range: { min: 0, max: 0 } };
                 const velocities = notes.map(n => n.velocity);
                 const pitches = notes.map(n => n.note);
-                const maxTime = Math.max(...notes.map(n => n.end || n.start + 240));
-                const secondsPerBeat = 60 / tempo;
+                const maxTime = Math.max(...notes.map(n => n.end || n.start + 1));
                 return {
                     noteCount: notes.length,
-                    duration: maxTime / this.ppq * secondsPerBeat,
+                    duration: maxTime / this.ppq * (60 / tempo),
                     avgVelocity: Math.round(velocities.reduce((a, b) => a + b, 0) / velocities.length),
                     range: { min: Math.min(...pitches), max: Math.max(...pitches) },
                 };
@@ -1428,7 +1376,7 @@
                     constrainToScale: $('constrainToScale').checked,
                     // gridSelect values are in "quarter notes" (1 = quarter, 4 = whole, 0.25 = 16th),
                     // so scale by the file's actual PPQ rather than a fixed constant.
-                    gridValue: parseFloat($('gridSelect').value) * ppq || ppq,
+                    gridValue: parseFloat($('gridSelect').value) * ppq,
                     excludeDrums: $('excludeDrums').checked,
                 };
 
@@ -1436,6 +1384,8 @@
                     state.sourceA.notes,
                     state.sourceB.notes,
                     ppq,
+                    state.sourceA.ppq || ppq,
+                    state.sourceB.ppq || ppq,
                     state.sourceA.tempo || 120,
                     state.sourceB.tempo || 120,
                     state.sourceA.key || 'C',
@@ -1977,7 +1927,7 @@
         });
 
         function showHelp() {
-            showModal('📖 Musical Interpolation Engine v2.3',
+            showModal('📖 Musical Interpolation Engine v2.4',
                 'How it works:\n\n' +
                 '1. Load two MIDI files (Source A and Source B)\n' +
                 '2. Use the Morph slider to blend between them\n' +
@@ -1994,7 +1944,7 @@
         }
 
         function showAbout() {
-            showModal('🌀 Musical Interpolation Engine v2.3',
+            showModal('🌀 Musical Interpolation Engine v2.4',
                 'A creative tool for blending two MIDI sequences.\n\n' +
                 'Features:\n' +
                 '• Morph between any two MIDI files\n' +
@@ -2060,7 +2010,7 @@
             initFileHandling();
             renderPianoRoll();
             updateStatus();
-            console.log('🌀 Musical Interpolation Engine v2.3');
+            console.log('🌀 Musical Interpolation Engine v2.4');
             console.log('✅ DOM-decoupled engine — no null errors');
             console.log('📖 Press H for help');
             console.log('⌨️ Space=Play, G=Generate, E=Export, R=Reset view');
